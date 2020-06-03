@@ -50,7 +50,7 @@ For example, here's my full configure line, using a ["unified"](https://www.embe
 	    --with-no-pic \
 	    CFLAGS_FOR_TARGET="-g -O2 -DHAVE_BLKSIZE -DHAVE_RENAME"
 
-Then `make` and `make install` as usual. Add the new prefix to your `PATH` in necessary, then you can use `mipsel-elf-gcc` with `-flto -msoft-float -mips1` to build things, and `mipsel-elf-gcc-ld` with `-nodefaultlibs -Tpsx.ld` to link things.
+Then `make` and `make install` as usual. Add the new prefix to your `PATH` if necessary, then you can use `mipsel-elf-gcc` with `-flto -msoft-float -mips1` to build things, and `mipsel-elf-gcc-ld` with `-nodefaultlibs -Tpsx.ld` to link things.
 
 ### Thanks
 
