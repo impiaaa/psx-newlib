@@ -26,6 +26,7 @@ This is a syscall implementation and (only slightly modified) linker script for 
     * `--disable-newlib-multithread`: Optional. Disables threading support.
     * `--disable-shared`: Optional. Do not build shared libraries.
     * `--enable-lite-exit`: Optional. Console games don't typically exit, so why spend time there?
+    * `--enable-newlib-nano-malloc`: Optional. Enables an alternative `malloc` implementation, "which is for small systems with very limited memory."
 
 For example, here's my full configure line, using a ["unified"](https://www.embecosm.com/appnotes/ean9/html/ch02s01.html) build alongside binutils and GCC:
 
@@ -52,16 +53,93 @@ For example, here's my full configure line, using a ["unified"](https://www.embe
 
 Then `make` and `make install` as usual. Add the new prefix to your `PATH` if necessary, then you can use `mipsel-elf-gcc` with `-flto -msoft-float -mips1` to build things, and `mipsel-elf-gcc-ld` with `-nodefaultlibs -Tpsx.ld` to link things.
 
+### Platform support
+
+#### Stubbed OS subroutines (meaningless on the system, but do not return error)
+
+* `environ`
+* `getpid`
+* `kill`
+
+#### Library functions affected by stubbed OS subroutines (may not behave as expected)
+
+* `assert`
+* `getenv`, `_getenv_r`
+* `raise`, `_raise_r`
+* `tmpfile`, `tmpfile_r`
+* `tmpfile64`, `_tmpfile64_r`
+* `tmpnam`, `tempnam`, `_tmpnam_r`, `_tempnam_r`
+
+#### Unsupported OS subroutines (always return error)
+
+* `gettimeofday`
+* `link`
+
+#### Library functions affected by unsupported OS subroutines (always return error)
+
+* `_gettimeofday_r`
+* `_link_r`
+* `time`
+
+#### Unimplemented OS subroutines (programs that use these will fail to link)
+
+* `dup2`
+* `execve`
+* `execvpe`
+* `fcntl`
+* `fork`
+* `fstat64`
+* `lseek64`
+* `mkdir`
+* `open64`
+* `pipe`
+* `sched_setparam`
+* `sched_setscheduler`
+* `setegid`
+* `seteuid`
+* `setpgid`
+* `sigaction`
+* `sigprocmask`
+* `symlink`
+* `times`
+* `vfork`
+* `wait`
+* `waitpid`
+
+#### Library functions affected by unimplemented OS subroutines (programs that use these will fail to link)
+
+* `_execve_r`
+* `_fcntl_r`
+* `_fork_r`
+* `_fstat64_r`
+* `_lseek64_r`
+* `_mkdir_r`
+* `_open64_r`
+* `_times_r`
+* `_wait_r`
+* `clock`
+* `fopen64`, `_fopen64_r`
+* `freopen64`, `_freopen64_r`
+* `fseeko64`, `_fsseko64_r`
+* `fsetpos64`, `_fsetpos64_r`
+* `mktemp`, `mkdtemp`, `mkstemp`, `mkstemps`, `mkostemp`, `mkostemps`, `_mktemp_r`, `_mkdtemp_r`, `_mkstemp_r`, `_mkstemps_r`, `_mkostemp_r`, `_mkostemps_r`
+* `popen`, `pclose`
+* `posix_spawn`, `posix_spawnp`
+* `pread64`
+* `pwrite64`
+* `system`, `_system_r`
+* `tmpfile64`, `_tmpfile64_r`
+
+### To do
+
+* Make a custom, slimmer `crt0.s`. The built-in one is great, but 1) supplies `_exit`, which could be done as a syscall, and 2) zeroes `.bss` and does some other system initialization that the BIOS boot sequence already does.
+* Pass `argv` to main. The boot executable copies some of `system.cnf` to 0x180, but syscall A(0x43) passes parameters to `r4` and `r5` (and where in either of those does the executable name go?).
+* Consider using the syscall versions of some or all stdlib functions.
+* Consider `-O2` vs `-Os` vs `-O3`.
+
 ### Thanks
 
 * [Adrian Siekierka](https://github.com/asiekierka) for [candyk](https://github.com/ChenThread/candyk-packages), which helped me figure out some of the configure flags
 * [Nicolas Noble](https://github.com/nicolasnoble) for [Openbios](https://github.com/grumpycoders/pcsx-redux/tree/master/src/mips/openbios), which helped me figure out how some of the BIOS calls work, and also how to do them inline in C
 * [Nocash](https://problemkaputt.de/) for the [PSX Specifications](https://problemkaputt.de/psx-spx.htm)
 * NextVolume/Tails92 and [Lameguy64](https://github.com/Lameguy64) for their existing PS1 SDKs
-
-### To do
-
-* Make a custom `crt0.s`. The built-in one is great, but 1) supplies `_exit`, which could be done as a syscall, and 2) zeroes `.bss` and does some other system initialization that the BIOS boot sequence already does.
-* Consider using the syscall versions of some or all stdlib functions.
-* Consider `-O2` vs `-Os` vs `-O3`.
-
