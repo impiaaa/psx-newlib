@@ -150,35 +150,35 @@ static inline t_direntry* syscall_find_first(const char* filename, t_direntry *d
 extern int strncmp(const char *s1, const char *s2, size_t n);
 
 int stat(const char *file, struct stat *st) {
-	t_direntry dir_e;	
-	if(syscall_find_first(file, &dir_e) == NULL) {
-	    errno = ENOENT;
-		return -1;
-	}
-	
-	if (strncmp(file, "cdrom:", 6) == 0) {
-		st->st_blksize = 2048;
-    	// TODO check if S_IFDIR
-		st->st_mode = S_IFREG;
-	}
-	else if (strncmp(file, "bu00:", 5) == 0 ||
-		     strncmp(file, "bu10:", 5) == 0) {
-		st->st_blksize = 128;
-		st->st_mode = S_IFREG;
-	}
-	else if (strncmp(file, "tty:", 4) == 0) {
-	    st->st_blksize = 1;
-	    st->st_mode = S_IFCHR;
-	}
-	else {
-	    errno = EINVAL;
-		return -1;
-	}
-	
-	st->st_size = dir_e.size;
+    t_direntry dir_e;    
+    if(syscall_find_first(file, &dir_e) == NULL) {
+        errno = ENOENT;
+        return -1;
+    }
+    
+    if (strncmp(file, "cdrom:", 6) == 0) {
+        st->st_blksize = 2048;
+        // TODO check if S_IFDIR
+        st->st_mode = S_IFREG;
+    }
+    else if (strncmp(file, "bu00:", 5) == 0 ||
+             strncmp(file, "bu10:", 5) == 0) {
+        st->st_blksize = 128;
+        st->st_mode = S_IFREG;
+    }
+    else if (strncmp(file, "tty:", 4) == 0) {
+        st->st_blksize = 1;
+        st->st_mode = S_IFCHR;
+    }
+    else {
+        errno = EINVAL;
+        return -1;
+    }
+    
+    st->st_size = dir_e.size;
     st->st_blocks = (st->st_size+st->st_blksize-1)/st->st_blksize;
-	
-	return 0;
+    
+    return 0;
 }
 
 static inline int syscall_write(int fd, char *ptr, int len) {
@@ -249,7 +249,7 @@ static inline int syscall_set_memory_size(int megabytes) {
 void hardware_init_hook(void) {
     syscall_set_memory_size(2);
     // needed for BIOS file functions to work
-	exitCriticalSection();
+    exitCriticalSection();
 }
 
 /*** Not required, but nice to have ***/
