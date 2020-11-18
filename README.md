@@ -1,4 +1,4 @@
-This is a syscall implementation and (only slightly modified) linker script for use with **[Newlib](http://www.sourceware.org/newlib/)** on the **[Sony PlayStation](en.wikipedia.org/wiki/PlayStation_(console))**. Newlib is a portable libc/stdlib implementation. It isn't as bloated as glibc, doesn't require Linux like musl, and is complete and standards-compliant unlike a custom libc.
+This is a syscall implementation and (only slightly modified) linker script for use with **[Newlib](http://www.sourceware.org/newlib/)** on the **[Sony PlayStation](en.wikipedia.org/wiki/PlayStation_(console))**. Newlib is a portable libc/stdlib implementation that doesn't require a Linux or BSD kernel like most libc's, and is complete and standards-compliant unlike a custom libc.
 
 ### To configure and compile Newlib for the PSX
 
@@ -142,4 +142,4 @@ Then `make` and `make install` as usual. Add the new prefix to your `PATH` if ne
 * [Adrian Siekierka](https://github.com/asiekierka) for [candyk](https://github.com/ChenThread/candyk-packages), which helped me figure out some of the configure flags
 * [Nicolas Noble](https://github.com/nicolasnoble) for [Openbios](https://github.com/grumpycoders/pcsx-redux/tree/master/src/mips/openbios), which helped me figure out how some of the BIOS calls work, and also how to do them inline in C
 * [Nocash](https://problemkaputt.de/) for the [PSX Specifications](https://problemkaputt.de/psx-spx.htm)
-* NextVolume/Tails92 and [Lameguy64](https://github.com/Lameguy64) for their existing PS1 SDKs
+* NextVolume and [Lameguy64](https://github.com/Lameguy64) for their existing PS1 SDKs
