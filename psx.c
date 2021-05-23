@@ -229,8 +229,10 @@ struct s_mem {
     unsigned int dcsize;
 };
 
+extern char _ftext[];
+extern char _end[];
 void get_mem_info(struct s_mem *mem) {
-    mem->size = 0x1F0000;
+    mem->size = 0x1F0000 - (_end - _ftext);
 }
 
 static inline int enterCriticalSection() {
