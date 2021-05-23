@@ -1,6 +1,8 @@
-This is a syscall implementation and (only slightly modified) linker script for use with **[Newlib](http://www.sourceware.org/newlib/)** on the **[Sony PlayStation](en.wikipedia.org/wiki/PlayStation_(console))**. Newlib is a portable libc/stdlib implementation that doesn't require a Linux or BSD kernel like most libc's, and is complete and standards-compliant unlike a custom libc.
+This is a syscall implementation and (only slightly modified) linker script for use with **[Newlib](http://www.sourceware.org/newlib/)** on the **[Sony PlayStation](https://en.wikipedia.org/wiki/PlayStation_(console))**. Newlib is a portable libc/stdlib implementation that doesn't require a Linux or BSD kernel like most libc's, and is complete and standards-compliant unlike a custom libc.
 
-### To configure and compile Newlib for the PSX
+The PlayStation includes a BIOS ROM that has a number of system support functions, which we use to implement device-specific system calls. However, it additionally includes a few libc functions itself that do not interact with peripherals. As such, Newlib can either be used for all libc functions except as necessary to interact with hardware, or Newlib can be patched to use BIOS routines whereever possible. The second option may run slower in some cases but will result in a smaller executable. Patching newlib is also **required** if you set any exception handlers, link with the legacy PsyQ libraries (which set exception handlers), or debug with the pcsx-redux emulator.
+
+### Option 1: Using plain Newlib
 
 1. Copy `psx.c` and `psx.ld` to `libgloss/mips/`.
 2. Add them to `libgloss/mips/Makefile.in`, for example with:
@@ -10,7 +12,18 @@ This is a syscall implementation and (only slightly modified) linker script for 
 	        ${AR} ${ARFLAGS} $@ $(PSXOBJS)
 	        ${RANLIB} $@
 
-3. Configure newlib with these flags:
+Then continue with "Configuring and compiling Newlib" below.
+
+### Option 2: Patching Newlib
+
+1. Copy `psx.c`, `psx.ld`, `psx-bonus.c`, and `psx-printf.s` to `libgloss/mips/`.
+2. In the top-level Newlib source, run `patch -p1 <psx.patch` (using the full path of `psx.patch`).
+
+Then continue with "Configuring and compiling Newlib" below.
+
+### Configuring and compiling Newlib
+
+1. Configure Newlib with these flags:
     * `--target=mipsel-elf`: Required for the platform. The `mipsel-unknown-elf` triple is sometimes recommended in other tutorials, but it does the same thing.
     * `CFLAGS` (or `CFLAGS_FOR_TARGET` for a unified build) set to:
         * `-DHAVE_BLKSIZE`: Required. PSX file I/O can only be done in block units, so this tells Newlib to enable "optimizations" that transform FS calls to block alignment.
@@ -134,7 +147,7 @@ Then `make` and `make install` as usual. Add the new prefix to your `PATH` if ne
 
 * Make a custom, slimmer `crt0.s`. The built-in one is great, but 1) supplies `_exit`, which could be done as a syscall, and 2) zeroes `.bss` and does some other system initialization that the BIOS boot sequence already does.
 * Pass `argv` to main. The boot executable copies some of `system.cnf` to 0x180, but syscall A(0x43) passes parameters to `r4` and `r5` (and where in either of those does the executable name go?).
-* Consider using the syscall versions of some or all stdlib functions.
+* Add syscall versions of malloc and memset.
 * Consider `-O2` vs `-Os` vs `-O3`.
 
 ### Thanks

@@ -80,12 +80,6 @@ int isatty() {
     return syscall_get_device_flag();
 }
 
-// Establish a new name for an existing file, a.k.a. "hardlink." Not supported.
-int link(char *existing, char *new) {
-    errno = ENOSYS;
-    return -1;
-}
-
 static inline int syscall_seek(int fd, int offset, int seektype) {
     register volatile int n asm("t1") = 0x33;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -207,16 +201,13 @@ int unlink(char *name) {
     return ret;
 }
 
-/*** Required by various things ***/
+/*** Unsupported by hardware ***/
 
-struct s_mem {
-    unsigned int size;
-    unsigned int icsize;
-    unsigned int dcsize;
-};
-
-void get_mem_info(struct s_mem *mem) {
-    mem->size = 0x1F0000;
+#if 1
+// Establish a new name for an existing file, a.k.a. "hardlink."
+int link(char *existing, char *new) {
+    errno = ENOSYS;
+    return -1;
 }
 
 #include <sys/time.h>
@@ -227,6 +218,19 @@ struct timeval;
 int gettimeofday(struct timeval *ptimeval, void *ptimezone) {
     errno = ENOSYS;
     return -1;
+}
+#endif
+
+/*** Required by various things ***/
+
+struct s_mem {
+    unsigned int size;
+    unsigned int icsize;
+    unsigned int dcsize;
+};
+
+void get_mem_info(struct s_mem *mem) {
+    mem->size = 0x1F0000;
 }
 
 static inline int enterCriticalSection() {
@@ -246,8 +250,31 @@ static inline int syscall_set_memory_size(int megabytes) {
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(int))0xA0)(megabytes);
 }
+
+typedef struct {
+    void (*function)(void);
+    int* sp;
+    int* fp;
+    int general[8];
+    int* gp;
+} t_functionState;
+
+static inline t_functionState* syscall_set_default_exit_from_exception() {
+    register volatile int n asm("t1") = 0x18;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((t_functionState*(*)(void))0xB0)();
+}
+
+static inline void syscall_set_custom_exit_from_exception(t_functionState* f) {
+    register volatile int n asm("t1") = 0x19;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void(*)(t_functionState*))0xB0)(f);
+}
+
 void hardware_init_hook(void) {
     syscall_set_memory_size(2);
+    // maybe needed for events to work?
+    syscall_set_default_exit_from_exception();
     // needed for BIOS file functions to work
     exitCriticalSection();
 }

@@ -1,0 +1,542 @@
+diff -aur newlib-4.1.0-orig/libgloss/mips/Makefile.in newlib-4.1.0-changed/libgloss/mips/Makefile.in
+--- newlib-4.1.0-orig/libgloss/mips/Makefile.in	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/libgloss/mips/Makefile.in	2021-05-20 09:28:46.393923135 -0700
+@@ -76,6 +76,7 @@
+ JMR3904OBJS = jmr3904-io.o @part_specific_obj@ ${GENOBJS} ${GENOBJS2}
+ CFEOBJS = cfe.o cfe_api.o cfe_mem.o @part_specific_obj@ ${GENOBJS} ${GENOBJS2}
+ CYGMONOBJS = open.o close.o cygmon.o @part_specific_obj@ ${GENOBJS}
++PSXOBJS = psx.o syscalls.o getpid.o kill.o putnum.o psx-bonus.o psx-printf.o
+ 
+ # Nullmon cannot support read and write, but the test cases pull them in via libs
+ NULLMONOBJS = nullmon.o @part_specific_obj@ ${GENOBJS}
+@@ -140,6 +141,10 @@
+ 	${AR} ${ARFLAGS} $@ $(CFEOBJS)
+ 	${RANLIB} $@
+ 
++libpsxsys.a: $(PSXOBJS)
++	${AR} ${ARFLAGS} $@ $(PSXOBJS)
++	${RANLIB} $@
++
+ # nullmon.a , This is what you want if you want crt0 but NO mon services
+ # Supports GDB sim testing, board bringups, ICE operation.
+ libnullmon.a: $(NULLMONOBJS)
+Only in newlib-4.1.0-changed/libgloss/mips: psx-bonus.c
+Only in newlib-4.1.0-changed/libgloss/mips: psx-printf.S
+Only in newlib-4.1.0-changed/libgloss/mips: psx.c
+diff -aur newlib-4.1.0-orig/newlib/libc/ctype/tolower.c newlib-4.1.0-changed/newlib/libc/ctype/tolower.c
+--- newlib-4.1.0-orig/newlib/libc/ctype/tolower.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/ctype/tolower.c	2021-05-20 21:37:32.142190483 -0700
+@@ -61,6 +61,7 @@
+ #endif
+ 
+ #undef tolower
++#if 0
+ int
+ tolower (int c)
+ {
+@@ -80,3 +81,4 @@
+   return isupper(c) ? (c) - 'A' + 'a' : c;
+ #endif
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/ctype/toupper.c newlib-4.1.0-changed/newlib/libc/ctype/toupper.c
+--- newlib-4.1.0-orig/newlib/libc/ctype/toupper.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/ctype/toupper.c	2021-05-20 21:37:05.150104334 -0700
+@@ -61,6 +61,7 @@
+ #endif
+ 
+ #undef toupper
++#if 0
+ int
+ toupper (int c)
+ {
+@@ -80,3 +81,4 @@
+   return islower (c) ? c - 'a' + 'A' : c;
+ #endif
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/include/machine/setjmp.h newlib-4.1.0-changed/newlib/libc/include/machine/setjmp.h
+--- newlib-4.1.0-orig/newlib/libc/include/machine/setjmp.h	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/include/machine/setjmp.h	2021-05-19 22:23:08.317200776 -0700
+@@ -128,7 +128,7 @@
+ #  define _JBTYPE long long
+ # endif
+ # ifdef __mips_soft_float
+-#  define _JBLEN 11
++#  define _JBLEN 12
+ # else
+ #  define _JBLEN 23
+ # endif
+diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/setjmp.S newlib-4.1.0-changed/newlib/libc/machine/mips/setjmp.S
+--- newlib-4.1.0-orig/newlib/libc/machine/mips/setjmp.S	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/machine/mips/setjmp.S	2021-05-20 21:27:30.124300545 -0700
+@@ -119,6 +119,7 @@
+ #define GPOFF(INDEX) (INDEX * BYTES_PER_WORD)
+ #define FPOFF(INDEX) ((INDEX + NUM_GPRS_SAVED) * BYTES_PER_WORD)
+ 
++#if 0
+ /* int setjmp (jmp_buf);  */
+ 	.globl	setjmp
+ 	.ent	setjmp
+@@ -157,3 +158,4 @@
+ 	j	$31
+ 
+ 	.end longjmp
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strcmp.S newlib-4.1.0-changed/newlib/libc/machine/mips/strcmp.S
+--- newlib-4.1.0-orig/newlib/libc/machine/mips/strcmp.S	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/machine/mips/strcmp.S	2021-05-20 22:03:22.499991153 -0700
+@@ -82,7 +82,7 @@
+ #ifndef STRCMP_NAME
+ # define STRCMP_NAME strcmp
+ #endif
+-
++#if 0
+ #ifdef ANDROID_CHANGES
+ LEAF(STRCMP_NAME, 0)
+ #else
+@@ -259,3 +259,4 @@
+ libc_hidden_builtin_def (STRCMP_NAME)
+ # endif
+ #endif
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strlen.c newlib-4.1.0-changed/newlib/libc/machine/mips/strlen.c
+--- newlib-4.1.0-orig/newlib/libc/machine/mips/strlen.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/machine/mips/strlen.c	2021-05-20 22:01:32.635596229 -0700
+@@ -20,6 +20,7 @@
+ 
+ /* MIPS16 needs to come first.  */
+ 
++#if 0
+ #if defined(__mips16)
+ size_t
+ strlen (const char *str)
+@@ -72,3 +73,4 @@
+ 	"	.set	macro\n"
+ 	"	.set	reorder\n");
+ #endif
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strncpy.c newlib-4.1.0-changed/newlib/libc/machine/mips/strncpy.c
+--- newlib-4.1.0-orig/newlib/libc/machine/mips/strncpy.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/machine/mips/strncpy.c	2021-05-20 22:02:06.771719263 -0700
+@@ -42,7 +42,7 @@
+ #error "UNROLL_FACTOR must be 2 or 4"
+ #endif
+ #endif
+-
++#if 0
+ char *
+ strncpy (char *dst0, const char *src0, size_t count)
+ {
+@@ -248,3 +248,4 @@
+   return dst0;
+ #endif
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/search/bsearch.c newlib-4.1.0-changed/newlib/libc/search/bsearch.c
+--- newlib-4.1.0-orig/newlib/libc/search/bsearch.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/search/bsearch.c	2021-05-20 21:39:49.522630164 -0700
+@@ -54,7 +54,7 @@
+ */
+ 
+ #include <stdlib.h>
+-
++#if 0
+ void *
+ bsearch (const void *key,
+ 	const void *base,
+@@ -88,4 +88,4 @@
+ 
+   return NULL;
+ }
+-
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/findfp.c newlib-4.1.0-changed/newlib/libc/stdio/findfp.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/findfp.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/findfp.c	2021-05-20 21:49:35.468886368 -0700
+@@ -114,7 +114,7 @@
+ {
+   /* POSIX requires stderr to be opened for reading and writing, even
+      when the underlying fd 2 is write-only.  */
+-  std (ptr, __SRW | __SNBF, 2);
++  std (ptr, __SRW | __SNBF, 1);
+ }
+ 
+ struct glue_with_file {
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/printf.c newlib-4.1.0-changed/newlib/libc/stdio/printf.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/printf.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/printf.c	2021-05-20 21:17:59.086646932 -0700
+@@ -44,6 +44,7 @@
+ 
+ #ifndef _REENT_ONLY
+ 
++#if 0
+ int
+ printf (const char *__restrict fmt, ...)
+ {
+@@ -57,6 +58,7 @@
+   va_end (ap);
+   return ret;
+ }
++#endif
+ 
+ #ifdef _NANO_FORMATTED_IO
+ int
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/abs.c newlib-4.1.0-changed/newlib/libc/stdlib/abs.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/abs.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/abs.c	2021-05-20 21:23:34.959593481 -0700
+@@ -30,9 +30,10 @@
+ */
+ 
+ #include <stdlib.h>
+-
++#if 0
+ int
+ abs (int i)
+ {
+   return (i < 0) ? -i : i;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atoi.c newlib-4.1.0-changed/newlib/libc/stdlib/atoi.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/atoi.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/atoi.c	2021-05-20 21:24:31.571761174 -0700
+@@ -46,11 +46,13 @@
+ #include <_ansi.h>
+ 
+ #ifndef _REENT_ONLY
++#if 0
+ int
+ atoi (const char *s)
+ {
+   return (int) strtol (s, NULL, 10);
+ }
++#endif
+ #endif /* !_REENT_ONLY */
+ 
+ int
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atol.c newlib-4.1.0-changed/newlib/libc/stdlib/atol.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/atol.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/atol.c	2021-05-20 21:25:08.855872568 -0700
+@@ -6,11 +6,13 @@
+ #include <_ansi.h>
+ 
+ #ifndef _REENT_ONLY
++#if 0
+ long
+ atol (const char *s)
+ {
+   return strtol (s, NULL, 10);
+ }
++#endif
+ #endif /* !_REENT_ONLY */
+ 
+ long
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/labs.c newlib-4.1.0-changed/newlib/libc/stdlib/labs.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/labs.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/labs.c	2021-05-20 21:24:06.679687215 -0700
+@@ -31,7 +31,7 @@
+ */
+ 
+ #include <stdlib.h>
+-
++#if 0
+ long
+ labs (long x)
+ {
+@@ -41,3 +41,4 @@
+     }
+   return x;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/rand.c newlib-4.1.0-changed/newlib/libc/stdlib/rand.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/rand.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/rand.c	2021-05-20 21:38:39.918407142 -0700
+@@ -57,7 +57,7 @@
+ 
+ #include <stdlib.h>
+ #include <reent.h>
+-
++#if 0
+ void
+ srand (unsigned int seed)
+ {
+@@ -80,5 +80,5 @@
+      _REENT_RAND_NEXT(reent) * __extension__ 6364136223846793005LL + 1;
+   return (int)((_REENT_RAND_NEXT(reent) >> 32) & RAND_MAX);
+ }
+-
++#endif
+ #endif /* _REENT_ONLY */
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtol.c newlib-4.1.0-changed/newlib/libc/stdlib/strtol.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/strtol.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/strtol.c	2021-05-20 21:21:57.199308567 -0700
+@@ -229,7 +229,7 @@
+ {
+ 	return _strtol_l (_REENT, s, ptr, base, loc);
+ }
+-
++#if 0
+ long
+ strtol (const char *__restrict s,
+ 	char **__restrict ptr,
+@@ -237,5 +237,5 @@
+ {
+ 	return _strtol_l (_REENT, s, ptr, base, __get_current_locale ());
+ }
+-
++#endif
+ #endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtoul.c newlib-4.1.0-changed/newlib/libc/stdlib/strtoul.c
+--- newlib-4.1.0-orig/newlib/libc/stdlib/strtoul.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdlib/strtoul.c	2021-05-20 21:21:24.303214207 -0700
+@@ -203,7 +203,7 @@
+ {
+ 	return _strtoul_l (_REENT, s, ptr, base, loc);
+ }
+-
++#if 0
+ unsigned long
+ strtoul (const char *__restrict s,
+ 	char **__restrict ptr,
+@@ -211,5 +211,5 @@
+ {
+ 	return _strtoul_l (_REENT, s, ptr, base, __get_current_locale ());
+ }
+-
++#endif
+ #endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/index.c newlib-4.1.0-changed/newlib/libc/string/index.c
+--- newlib-4.1.0-orig/newlib/libc/string/index.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/index.c	2021-05-20 21:31:46.357095019 -0700
+@@ -29,10 +29,11 @@
+ 
+ #include <string.h>
+ #include <strings.h>
+-
++#if 0
+ char *
+ index (const char *s,
+ 	int c)
+ {
+   return strchr (s, c);
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/rindex.c newlib-4.1.0-changed/newlib/libc/string/rindex.c
+--- newlib-4.1.0-orig/newlib/libc/string/rindex.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/rindex.c	2021-05-20 21:32:04.469151871 -0700
+@@ -29,10 +29,11 @@
+ 
+ #include <string.h>
+ #include <strings.h>
+-
++#if 0
+ char *
+ rindex (const char *s,
+ 	int c)
+ {
+   return strrchr (s, c);
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strcat.c newlib-4.1.0-changed/newlib/libc/string/strcat.c
+--- newlib-4.1.0-orig/newlib/libc/string/strcat.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strcat.c	2021-05-20 21:28:23.472464261 -0700
+@@ -52,7 +52,7 @@
+ 
+ /*SUPPRESS 560*/
+ /*SUPPRESS 530*/
+-
++#if 0
+ char *
+ strcat (char *__restrict s1,
+ 	const char *__restrict s2)
+@@ -95,3 +95,4 @@
+   return s;
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strchr.c newlib-4.1.0-changed/newlib/libc/string/strchr.c
+--- newlib-4.1.0-orig/newlib/libc/string/strchr.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strchr.c	2021-05-20 21:32:32.049238567 -0700
+@@ -50,7 +50,7 @@
+ /* DETECTCHAR returns nonzero if (long)X contains the byte used
+    to fill (long)MASK. */
+ #define DETECTCHAR(X,MASK) (DETECTNULL(X ^ MASK))
+-
++#if 0
+ char *
+ strchr (const char *s1,
+ 	int i)
+@@ -114,3 +114,4 @@
+     return (char *)s;
+   return NULL;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strcmp.c newlib-4.1.0-changed/newlib/libc/string/strcmp.c
+--- newlib-4.1.0-orig/newlib/libc/string/strcmp.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strcmp.c	2021-05-20 21:30:02.084769395 -0700
+@@ -50,7 +50,7 @@
+ #ifndef DETECTNULL
+ #error long int is not a 32bit or 64bit byte
+ #endif
+-
++#if 0
+ int
+ strcmp (const char *s1,
+ 	const char *s2)
+@@ -97,3 +97,4 @@
+   return (*(unsigned char *) s1) - (*(unsigned char *) s2);
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strcpy.c newlib-4.1.0-changed/newlib/libc/string/strcpy.c
+--- newlib-4.1.0-orig/newlib/libc/string/strcpy.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strcpy.c	2021-05-20 21:31:01.608954953 -0700
+@@ -50,7 +50,7 @@
+ #ifndef DETECTNULL
+ #error long int is not a 32bit or 64bit byte
+ #endif
+-
++#if 0
+ char*
+ strcpy (char *dst0,
+ 	const char *src0)
+@@ -90,3 +90,4 @@
+   return dst0;
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strcspn.c newlib-4.1.0-changed/newlib/libc/string/strcspn.c
+--- newlib-4.1.0-orig/newlib/libc/string/strcspn.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strcspn.c	2021-05-20 21:34:27.193602150 -0700
+@@ -24,7 +24,7 @@
+  */
+ 
+ #include <string.h>
+-
++#if 0
+ size_t
+ strcspn (const char *s1,
+ 	const char *s2)
+@@ -46,3 +46,4 @@
+ 
+   return s1 - s;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strlen.c newlib-4.1.0-changed/newlib/libc/string/strlen.c
+--- newlib-4.1.0-orig/newlib/libc/string/strlen.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strlen.c	2021-05-20 21:31:31.625048855 -0700
+@@ -47,7 +47,7 @@
+ #ifndef DETECTNULL
+ #error long int is not a 32bit or 64bit byte
+ #endif
+-
++#if 0
+ size_t
+ strlen (const char *str)
+ {
+@@ -80,3 +80,4 @@
+     str++;
+   return str - start;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strncat.c newlib-4.1.0-changed/newlib/libc/string/strncat.c
+--- newlib-4.1.0-orig/newlib/libc/string/strncat.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strncat.c	2021-05-20 21:29:39.156698184 -0700
+@@ -56,7 +56,7 @@
+ #ifndef DETECTNULL
+ #error long int is not a 32bit or 64bit byte
+ #endif
+-
++#if 0
+ char *
+ strncat (char *__restrict s1,
+ 	const char *__restrict s2,
+@@ -105,3 +105,4 @@
+   return s;
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strncmp.c newlib-4.1.0-changed/newlib/libc/string/strncmp.c
+--- newlib-4.1.0-orig/newlib/libc/string/strncmp.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strncmp.c	2021-05-20 21:30:26.076844073 -0700
+@@ -50,7 +50,7 @@
+ #ifndef DETECTNULL
+ #error long int is not a 32bit or 64bit byte
+ #endif
+-
++#if 0
+ int 
+ strncmp (const char *s1,
+ 	const char *s2,
+@@ -112,3 +112,4 @@
+   return (*(unsigned char *) s1) - (*(unsigned char *) s2);
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strncpy.c newlib-4.1.0-changed/newlib/libc/string/strncpy.c
+--- newlib-4.1.0-orig/newlib/libc/string/strncpy.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strncpy.c	2021-05-20 21:31:18.349007300 -0700
+@@ -57,7 +57,7 @@
+ #endif
+ 
+ #define TOO_SMALL(LEN) ((LEN) < sizeof (long))
+-
++#if 0
+ char *
+ strncpy (char *__restrict dst0,
+ 	const char *__restrict src0,
+@@ -116,3 +116,4 @@
+   return dst0;
+ #endif /* not PREFER_SIZE_OVER_SPEED */
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strrchr.c newlib-4.1.0-changed/newlib/libc/string/strrchr.c
+--- newlib-4.1.0-orig/newlib/libc/string/strrchr.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strrchr.c	2021-05-20 21:32:53.273305401 -0700
+@@ -28,7 +28,7 @@
+ */
+ 
+ #include <string.h>
+-
++#if 0
+ char *
+ strrchr (const char *s,
+ 	int i)
+@@ -50,3 +50,4 @@
+ 		  
+   return (char *) last;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strspn.c newlib-4.1.0-changed/newlib/libc/string/strspn.c
+--- newlib-4.1.0-orig/newlib/libc/string/strspn.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strspn.c	2021-05-20 21:33:02.757335286 -0700
+@@ -28,7 +28,7 @@
+ */
+ 
+ #include <string.h>
+-
++#if 0
+ size_t
+ strspn (const char *s1,
+ 	const char *s2)
+@@ -50,3 +50,4 @@
+ 
+   return s1 - s;
+ }
++#endif
+diff -aur newlib-4.1.0-orig/newlib/libc/string/strtok.c newlib-4.1.0-changed/newlib/libc/string/strtok.c
+--- newlib-4.1.0-orig/newlib/libc/string/strtok.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/string/strtok.c	2021-05-20 21:34:50.225675148 -0700
+@@ -78,6 +78,7 @@
+ 
+ extern char *__strtok_r (char *, const char *, char **, int);
+ 
++#if 0
+ char *
+ strtok (register char *__restrict s,
+ 	register const char *__restrict delim)
+@@ -88,3 +89,4 @@
+ 	return __strtok_r (s, delim, &(_REENT_STRTOK_LAST(reent)), 1);
+ }
+ #endif
++#endif
