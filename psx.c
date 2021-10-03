@@ -71,13 +71,13 @@ int fstat(int fd, struct stat *st) {
     return 0;
 }
 
-static inline int syscall_get_device_flag() {
+static inline int syscall_get_device_flag(int fd) {
     register volatile int n asm("t1") = 0x39;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)())0xB0)();
+    return ((int(*)(int))0xB0)(fd);
 }
-int isatty() {
-    return syscall_get_device_flag();
+int isatty(int fd) {
+    return syscall_get_device_flag(fd);
 }
 
 static inline int syscall_seek(int fd, int offset, int seektype) {
