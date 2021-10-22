@@ -21,19 +21,19 @@ diff -aur newlib-4.1.0-orig/libgloss/mips/Makefile.in newlib-4.1.0-changed/libgl
  # Supports GDB sim testing, board bringups, ICE operation.
  libnullmon.a: $(NULLMONOBJS)
 Only in newlib-4.1.0-changed/libgloss/mips: psx-bonus.c
-Only in newlib-4.1.0-changed/libgloss/mips: psx-printf.S
 Only in newlib-4.1.0-changed/libgloss/mips: psx.c
+Only in newlib-4.1.0-changed/libgloss/mips: psx-printf.S
 diff -aur newlib-4.1.0-orig/newlib/libc/ctype/tolower.c newlib-4.1.0-changed/newlib/libc/ctype/tolower.c
 --- newlib-4.1.0-orig/newlib/libc/ctype/tolower.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/ctype/tolower.c	2021-05-20 21:37:32.142190483 -0700
-@@ -61,6 +61,7 @@
++++ newlib-4.1.0-changed/newlib/libc/ctype/tolower.c	2021-10-21 21:40:27.764572560 -0700
+@@ -60,6 +60,7 @@
+ #include <wchar.h>
  #endif
  
- #undef tolower
 +#if 0
+ #undef tolower
  int
  tolower (int c)
- {
 @@ -80,3 +81,4 @@
    return isupper(c) ? (c) - 'A' + 'a' : c;
  #endif
@@ -163,6 +163,42 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/findfp.c newlib-4.1.0-changed/newl
  }
  
  struct glue_with_file {
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/getchar.c newlib-4.1.0-changed/newlib/libc/stdio/getchar.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/getchar.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/getchar.c	2021-10-22 10:22:51.252898480 -0700
+@@ -79,7 +79,7 @@
+ }
+ 
+ #ifndef _REENT_ONLY
+-
++#if 0
+ int
+ getchar (void)
+ {
+@@ -89,5 +89,5 @@
+   _REENT_SMALL_CHECK_INIT (reent);
+   return _getc_r (reent, _stdin_r (reent));
+ }
+-
++#endif
+ #endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/gets.c newlib-4.1.0-changed/newlib/libc/stdio/gets.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/gets.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/gets.c	2021-10-22 10:23:13.844979140 -0700
+@@ -91,11 +91,11 @@
+ }
+ 
+ #ifndef _REENT_ONLY
+-
++#if 0
+ char *
+ gets (char *buf)
+ {
+   return _gets_r (_REENT, buf);
+ }
+-
++#endif
+ #endif
 diff -aur newlib-4.1.0-orig/newlib/libc/stdio/printf.c newlib-4.1.0-changed/newlib/libc/stdio/printf.c
 --- newlib-4.1.0-orig/newlib/libc/stdio/printf.c	2020-12-18 15:50:49.000000000 -0800
 +++ newlib-4.1.0-changed/newlib/libc/stdio/printf.c	2021-05-20 21:17:59.086646932 -0700
@@ -182,6 +218,42 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/printf.c newlib-4.1.0-changed/newl
  
  #ifdef _NANO_FORMATTED_IO
  int
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/putchar.c newlib-4.1.0-changed/newlib/libc/stdio/putchar.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/putchar.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/putchar.c	2021-10-22 10:22:58.880925714 -0700
+@@ -75,7 +75,7 @@
+ }
+ 
+ #ifndef _REENT_ONLY
+-
++#if 0
+ int
+ putchar (int c)
+ {
+@@ -84,5 +84,5 @@
+   _REENT_SMALL_CHECK_INIT (reent);
+   return _putc_r (reent, c, _stdout_r (reent));
+ }
+-
++#endif
+ #endif
+diff -aur newlib-4.1.0-orig/newlib/libc/stdio/puts.c newlib-4.1.0-changed/newlib/libc/stdio/puts.c
+--- newlib-4.1.0-orig/newlib/libc/stdio/puts.c	2020-12-18 15:50:49.000000000 -0800
++++ newlib-4.1.0-changed/newlib/libc/stdio/puts.c	2021-10-22 10:23:27.361027408 -0700
+@@ -122,11 +122,11 @@
+ }
+ 
+ #ifndef _REENT_ONLY
+-
++#if 0
+ int
+ puts (char const * s)
+ {
+   return _puts_r (_REENT, s);
+ }
+-
++#endif
+ #endif
 diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/abs.c newlib-4.1.0-changed/newlib/libc/stdlib/abs.c
 --- newlib-4.1.0-orig/newlib/libc/stdlib/abs.c	2020-12-18 15:50:49.000000000 -0800
 +++ newlib-4.1.0-changed/newlib/libc/stdlib/abs.c	2021-05-20 21:23:34.959593481 -0700

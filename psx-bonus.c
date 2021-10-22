@@ -145,4 +145,24 @@ void *bsearch(const void *key, const void *base, size_t nel, size_t width, int (
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void *(*)(const void *, const void *, size_t, size_t, int (*)(const void *, const void *)))0xA0)(key, base, nel, width, callback);
 }
+int getchar(void) {
+    register volatile int n asm("t1") = 0x3B;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((int(*)(void))0xA0)();
+}
+int putchar(int c) {
+    register volatile int n asm("t1") = 0x3C;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((int(*)(int))0xA0)(c);
+}
+char *gets(char *s) {
+    register volatile int n asm("t1") = 0x3D;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((char *(*)(char *))0xA0)(s);
+}
+int puts(const char *s) {
+    register volatile int n asm("t1") = 0x3E;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((int(*)(const char *))0xA0)(s);
+}
 
