@@ -24,11 +24,14 @@ int close(int file) {
 }
 
 typedef struct {
-    char* name_lower;
-    int flags;
-    int sector_size;
-    char* descr;
-} t_dcb;
+    char filename[20];
+    int attr;
+    int size;
+    void* next;
+    int sector;
+    int unk;
+} t_direntry;
+typedef struct _dcb t_dcb;
 typedef struct {
     unsigned int access_mode;
     unsigned int device_id;
@@ -42,6 +45,28 @@ typedef struct {
     int logical_block_number;
     int control_block_number;
 } t_fcb;
+struct _dcb {
+    char* name_lower;
+    int flags;
+    int sector_size;
+    char* descr;
+    void (*init)(void);
+    int (*open)(t_fcb*,char*,int);
+    int (*in_out)(t_fcb*,int);
+    int (*close)(t_fcb*);
+    int (*ioctl)(t_fcb*,int,int);
+    int (*read)(t_fcb*,void*,int);
+    int (*write)(t_fcb*,void*,int);
+    int (*erase)(t_fcb*,char*);
+    int (*undelete)(t_fcb*,char*);
+    t_direntry* (*firstfile)(t_fcb*,const char*,t_direntry*);
+    t_direntry* (*nextfile)(t_fcb*,t_direntry*);
+    int (*format)(t_fcb*);
+    void (*chdir)(t_fcb*,const char *);
+    void (*rename)(t_fcb*,const char *,t_fcb*,const char *);
+    void (*deinit)(void);
+    void (*testdevice)(t_fcb*);
+};
 static t_fcb *const * fcb_table_ptr = (t_fcb *const *)0x140;
 
 #include <sys/stat.h>
@@ -128,49 +153,67 @@ int read(int file, char *ptr, int len) {
     return ret;
 }
 
-typedef struct {
-    char filename[20];
-    int attr;
-    int size;
-    void* next;
-    int sector;
-    int unk;
-} t_direntry;
-static inline t_direntry* syscall_find_first(const char* filename, t_direntry *direntry) {
-    register volatile int n asm("t1") = 0x42;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((t_direntry*(*)(const char *, t_direntry *))0xB0)(filename, direntry);
-}
-extern int strncmp(const char *s1, const char *s2, size_t n);
-
+#include <ctype.h> // tolower
+#include <strings.h> // bzero
+static t_dcb *const * dcb_table_ptr = (t_dcb *const *)0x150;
 int stat(const char *file, struct stat *st) {
-    t_direntry dir_e;    
-    if(syscall_find_first(file, &dir_e) == NULL) {
-        errno = ENOENT;
-        return -1;
+    t_dcb *dcb;
+    int found = 0;
+    int i, device_id;
+    for (int device_id = 0; device_id < 10 && !found; device_id++) {
+        dcb = &(*dcb_table_ptr)[device_id];
+        if (dcb->name_lower == NULL) {
+            continue;
+        }
+        for (i = 0; i < 6; i++) {
+            if (file[i] == ':' || // filesystem devices
+                file[i] == '\0' || // character devices
+                dcb->name_lower[i] == '\0') // enumerated devices
+            {
+                found = 1;
+                break;
+            }
+            if (tolower(file[i]) != dcb->name_lower[i]) {
+                found = 0;
+                break;
+            }
+        }
     }
     
-    if (strncmp(file, "cdrom:", 6) == 0) {
-        st->st_blksize = 2048;
-        // TODO check if S_IFDIR
-        st->st_mode = S_IFREG;
-    }
-    else if (strncmp(file, "bu00:", 5) == 0 ||
-             strncmp(file, "bu10:", 5) == 0) {
-        st->st_blksize = 128;
-        st->st_mode = S_IFREG;
-    }
-    else if (strncmp(file, "tty:", 4) == 0) {
-        st->st_blksize = 1;
-        st->st_mode = S_IFCHR;
-    }
-    else {
+    if (found == 0) {
         errno = EINVAL;
         return -1;
     }
     
-    st->st_size = dir_e.size;
-    st->st_blocks = (st->st_size+st->st_blksize-1)/st->st_blksize;
+    // trim off device name
+    while (file[i] != ':' && file[i] != '\0') {
+        i++;
+    }
+    
+    if (dcb->firstfile != NULL && file[i] != '\0') {
+        t_direntry dir_e;
+        t_fcb fcb;
+        if (dcb->firstfile(&fcb, file+i+1, &dir_e) == NULL) {
+            errno = ENOENT;
+            return -1;
+        }
+        bzero(st, sizeof(struct stat));
+        st->st_size = dir_e.size;
+        st->st_blocks = (dir_e.size+dcb->sector_size-1)/dcb->sector_size;
+    }
+    else {
+        bzero(st, sizeof(struct stat));
+    }
+    
+    st->st_dev = device_id;
+    // TODO check if S_IFDIR
+    if (dcb->flags&0x01) {
+        st->st_mode = S_IFCHR;
+    }
+    else {
+        st->st_mode = S_IFREG;
+    }
+    st->st_blksize = dcb->sector_size;
     
     return 0;
 }
