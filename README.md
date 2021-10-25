@@ -2,7 +2,11 @@ This is a syscall implementation and (only slightly modified) linker script for 
 
 The PlayStation includes a BIOS ROM that has a number of system support functions, which we use to implement device-specific system calls. However, it additionally includes a few libc functions itself that do not interact with peripherals. As such, Newlib can either be used for all libc functions except as necessary to interact with hardware, or Newlib can be patched to use BIOS routines whereever possible. The second option may run slower in some cases but will result in a smaller executable. Patching newlib is also **required** if you set any exception handlers, link with the legacy PsyQ libraries (which set exception handlers), or debug with the pcsx-redux emulator.
 
-### Option 1: Using plain Newlib
+### Option 1: Using a pre-patched, pre-compiled Newlib
+
+Download a pre-compiled bundle from the [releases page](https://github.com/impiaaa/psx-newlib/releases) and install it into your existing MIPSEL prefix. Make sure to use `-nodefaultlibs -Tpsx.ld` in the linker flags, or if using another linker script, add `-lpsxsys` manually.
+
+### Option 2: Using plain Newlib
 
 1. Copy `psx.c` and `psx.ld` to `libgloss/mips/`.
 2. Add them to `libgloss/mips/Makefile.in`, for example with:
@@ -14,7 +18,7 @@ The PlayStation includes a BIOS ROM that has a number of system support function
 
 Then continue with "Configuring and compiling Newlib" below.
 
-### Option 2: Patching Newlib
+### Option 3: Patching Newlib
 
 1. Copy `psx.c`, `psx.ld`, `psx-bonus.c`, and `psx-printf.s` to `libgloss/mips/`.
 2. In the top-level Newlib source, run `patch -p1 <psx.patch` (using the full path of `psx.patch`).
