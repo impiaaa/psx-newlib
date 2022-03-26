@@ -8,7 +8,7 @@ GROUP(-lc -lpsxsys -lgcc)
 SEARCH_DIR(.)
 __DYNAMIC  =  0;
 
-PROVIDE (__stack = 0x801ffff0);
+PROVIDE (__stack = 0x801FFFC4);
 
 /*
  * Initalize some symbols to be zero so we can reference them in the
@@ -106,7 +106,7 @@ SECTIONS
       CONSTRUCTORS
   }
   . = ALIGN(8);
-  _gp = . + 0x8000;
+  _gp = .;
   __global = _gp;
   .lit8 : {
     *(.lit8)
