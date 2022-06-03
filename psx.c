@@ -4,6 +4,8 @@
 #undef errno
 extern int errno;
 
+// I've checked to make sure that all error codes returned by the BIOS line up
+// with the error codes defined in Newlib
 static inline int syscall_get_last_error(void) {
     register volatile int n asm("t1") = 0x54;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -68,8 +70,10 @@ struct _dcb {
     void (*testdevice)(t_fcb*);
 };
 static t_fcb *const * fcb_table_ptr = (t_fcb *const *)0x140;
+static t_dcb *const * dcb_table_ptr = (t_dcb *const *)0x150;
 
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 int fstat(int fd, struct stat *st) {
     if (fd >= 16) {
         errno = EBADF;
@@ -80,13 +84,13 @@ int fstat(int fd, struct stat *st) {
         errno = ENOENT;
         return -1;
     }
-    st->st_dev = fcb->device_id;
+    st->st_dev = makedev(fcb->dcb - (*dcb_table_ptr), fcb->device_id);
     st->st_ino = fcb->logical_block_number;
     st->st_mode = (fcb->flags & 1) ? S_IFCHR : S_IFREG; // TODO check if S_IFDIR
     st->st_nlink = 0;
     st->st_uid = 0; // these could be retrieved from directory record SU
     st->st_gid = 0; // section, but dunno if BIOS reads that
-    st->st_rdev = 0;
+    st->st_rdev = (fcb->flags & 1) ? fcb->device_id : 0;
     st->st_size = fcb->file_size;
     st->st_atime = 0;
     st->st_mtime = 0;
@@ -155,13 +159,12 @@ int read(int file, char *ptr, int len) {
 
 #include <ctype.h> // tolower
 #include <strings.h> // bzero
-static t_dcb *const * dcb_table_ptr = (t_dcb *const *)0x150;
 int stat(const char *file, struct stat *st) {
     t_dcb *dcb;
     int found = 0;
-    int i, device_id;
-    for (int device_id = 0; device_id < 10 && !found; device_id++) {
-        dcb = &(*dcb_table_ptr)[device_id];
+    int i, device_major_id;
+    for (int device_major_id = 0; device_major_id < 10 && !found; device_major_id++) {
+        dcb = &(*dcb_table_ptr)[device_major_id];
         if (dcb->name_lower == NULL) {
             continue;
         }
@@ -200,12 +203,13 @@ int stat(const char *file, struct stat *st) {
         bzero(st, sizeof(struct stat));
         st->st_size = dir_e.size;
         st->st_blocks = (dir_e.size+dcb->sector_size-1)/dcb->sector_size;
+        st->st_dev = makedev(device_major_id, fcb.device_id);
     }
     else {
         bzero(st, sizeof(struct stat));
+        st->st_dev = makedev(device_major_id, 0);
     }
     
-    st->st_dev = device_id;
     // TODO check if S_IFDIR
     if (dcb->flags&0x01) {
         st->st_mode = S_IFCHR;
@@ -317,9 +321,13 @@ static inline void syscall_set_custom_exit_from_exception(t_functionState* f) {
 }
 
 void hardware_init_hook(void) {
+    // crash on out-of-bounds memory access instead of wrapping around and
+    // corrupting memory
     syscall_set_memory_size(2);
+    
     // maybe needed for events to work?
     syscall_set_default_exit_from_exception();
+    
     // needed for BIOS file functions to work
     exitCriticalSection();
 }
@@ -342,13 +350,13 @@ int ioctl(int fd, unsigned long request, void* arg) {
 /*
 // supplied by crt0
 // TODO uncomment when custom crt0
-__attribute__ ((noreturn)) static inline void syscall_exit(int code) {
+static inline void syscall_exit(int code) {
     register volatile int n asm("t1") = 0x38;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     // I have no idea how to get rid of the "'noreturn' function does return" warning here
     ((void(*)(int))0xB0)(code);
 }
-__attribute__ ((noreturn)) void _exit(int code) {
+void _exit(int code) {
     syscall_exit(code);
 }
 */
