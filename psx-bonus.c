@@ -42,6 +42,7 @@ void longjmp(jmp_buf buf, int param) {
     register volatile int n asm("t1") = 0x14;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     ((void(*)(jmp_buf, int))0xA0)(buf, param);
+    __builtin_unreachable();
 }
 char *strcat(char *dst, const char *src) {
     register volatile int n asm("t1") = 0x15;

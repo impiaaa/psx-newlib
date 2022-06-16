@@ -73,9 +73,9 @@ static t_fcb *const * fcb_table_ptr = (t_fcb *const *)0x140;
 static t_dcb *const * dcb_table_ptr = (t_dcb *const *)0x150;
 
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
+#define makedev(major, minor) (((minor) & 0xffff) | (((major) & 0xffff) << 16))
 int fstat(int fd, struct stat *st) {
-    if (fd >= 16) {
+    if (fd < 0 || fd >= 16) {
         errno = EBADF;
         return -1;
     }
@@ -159,6 +159,7 @@ int read(int file, char *ptr, int len) {
 
 #include <ctype.h> // tolower
 #include <strings.h> // bzero
+#include <stddef.h> // NULL
 int stat(const char *file, struct stat *st) {
     t_dcb *dcb;
     int found = 0;
@@ -272,14 +273,16 @@ int gettimeofday(struct timeval *ptimeval, void *ptimezone) {
 
 struct s_mem {
     unsigned int size;
-    unsigned int icsize;
-    unsigned int dcsize;
+    unsigned int icsize; // unused
+    unsigned int dcsize; // unused
 };
 
 extern char _ftext[];
 extern char _end[];
+static const unsigned int* ram_size_ptr = (const unsigned int*)0x60;
+
 void get_mem_info(struct s_mem *mem) {
-    mem->size = 0x1F0000 - (_end - _ftext);
+    mem->size = (((*ram_size_ptr)<<15) - 0x10000) - (_end - _ftext);
 }
 
 static inline int enterCriticalSection() {
@@ -353,11 +356,11 @@ int ioctl(int fd, unsigned long request, void* arg) {
 static inline void syscall_exit(int code) {
     register volatile int n asm("t1") = 0x38;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    // I have no idea how to get rid of the "'noreturn' function does return" warning here
     ((void(*)(int))0xB0)(code);
 }
 void _exit(int code) {
     syscall_exit(code);
+    __builtin_unreachable();
 }
 */
 
