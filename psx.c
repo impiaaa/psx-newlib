@@ -133,11 +133,22 @@ static inline int syscall_open(const char * filename, int mode) {
     return ((int(*)(const char *, int))0xB0)(filename, mode);
 }
 int open(const char *name, int flags, int mode) {
-    int access = (flags&3)+1;
-    int nowait = 0;
-    int create = flags&0x200;
-    int noblock = (flags&0x4000)>>1;
-    int ret = syscall_open(name, access|nowait|create|noblock);
+    int access   = flags & 3;
+    int append   = flags & 0x00008;
+    int creat    = flags & 0x00200;
+    int excl     = flags & 0x00800;
+    int ndelay   = flags & 0x01000;
+    int sync     = flags & 0x02000;
+    int nonblock = flags & 0x04000;
+    int noctty   = flags & 0x08000;
+    int direct   = flags & 0x80000;
+    
+    int psaccess = access + 1;
+    int psnblock = (ndelay >> 10) | (nonblock >> 12);
+    int pscreat  = creat;
+    int psnobuf  = direct >> 5; // unused
+    int psnowait = (~(sync >> 2)) & 0x8000;
+    int ret = syscall_open(name, psaccess|psnblock|pscreat|psnobuf|psnowait);
     if (ret < 0) {
         errno = syscall_get_last_error();
     }
