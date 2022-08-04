@@ -6,7 +6,7 @@ extern int errno;
 
 // I've checked to make sure that all error codes returned by the BIOS line up
 // with the error codes defined in Newlib
-static inline int syscall_get_last_error(void) {
+static inline int syscall__get_errno(void) {
     register volatile int n asm("t1") = 0x54;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(void))0xB0)();
@@ -20,7 +20,7 @@ static inline int syscall_close(int fd) {
 int close(int file) {
     int ret = syscall_close(file);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -122,7 +122,7 @@ int lseek(int file, int ptr, int dir) {
     }
     int ret = syscall_seek(file, ptr, dir);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -150,7 +150,7 @@ int open(const char *name, int flags, int mode) {
     int psnowait = (~(sync >> 2)) & 0x8000;
     int ret = syscall_open(name, psaccess|psnblock|pscreat|psnobuf|psnowait);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -163,7 +163,7 @@ static inline int syscall_read(int fd, char *ptr, int len) {
 int read(int file, char *ptr, int len) {
     int ret = syscall_read(file, ptr, len);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -242,20 +242,20 @@ static inline int syscall_write(int fd, char *ptr, int len) {
 int write(int file, char *ptr, int len) {
     int ret = syscall_write(file, ptr, len);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
 
-static inline int syscall_delete(char* filename) {
+static inline int syscall_erase(char* filename) {
     register volatile int n asm("t1") = 0x45;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(const char *))0xB0)(filename);
 }
 int unlink(char *name) {
-    int ret = syscall_delete(name)-1;
+    int ret = syscall_erase(name)-1;
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -308,7 +308,7 @@ static inline void exitCriticalSection() {
     __asm__ volatile("syscall\n" : "=r"(n) : "r"(n) : "at", "v0", "v1", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "memory");
 }
 
-static inline int syscall_set_memory_size(int megabytes) {
+static inline int syscall_SetMem(int megabytes) {
     register volatile int n asm("t1") = 0x9F;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(int))0xA0)(megabytes);
@@ -322,13 +322,13 @@ typedef struct {
     int* gp;
 } t_functionState;
 
-static inline t_functionState* syscall_set_default_exit_from_exception() {
+static inline t_functionState* syscall_ResetEntryInt() {
     register volatile int n asm("t1") = 0x18;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((t_functionState*(*)(void))0xB0)();
 }
 
-static inline void syscall_set_custom_exit_from_exception(t_functionState* f) {
+static inline void syscall_HookEntryInt(t_functionState* f) {
     register volatile int n asm("t1") = 0x19;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void(*)(t_functionState*))0xB0)(f);
@@ -337,10 +337,10 @@ static inline void syscall_set_custom_exit_from_exception(t_functionState* f) {
 void hardware_init_hook(void) {
     // crash on out-of-bounds memory access instead of wrapping around and
     // corrupting memory
-    syscall_set_memory_size(2);
+    syscall_SetMem(2);
     
     // maybe needed for events to work?
-    syscall_set_default_exit_from_exception();
+    syscall_ResetEntryInt();
     
     // needed for BIOS file functions to work
     exitCriticalSection();
@@ -356,7 +356,7 @@ static inline int syscall_ioctl(int fd, unsigned long request, void* arg) {
 int ioctl(int fd, unsigned long request, void* arg) {
     int ret = syscall_ioctl(fd, request, arg);
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -364,35 +364,35 @@ int ioctl(int fd, unsigned long request, void* arg) {
 /*
 // supplied by crt0
 // TODO uncomment when custom crt0
-static inline void syscall_exit(int code) {
-    register volatile int n asm("t1") = 0x38;
+static inline void syscall__exit(int code) {
+    register volatile int n asm("t1") = 0x3A;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    ((void(*)(int))0xB0)(code);
+    ((void(*)(int))0xA0)(code);
 }
 void _exit(int code) {
-    syscall_exit(code);
+    syscall__exit(code);
     __builtin_unreachable();
 }
 */
 
-static inline void syscall_print(char *ptr) {
+static inline void syscall_puts(char *ptr) {
     register volatile int n asm("t1") = 0x3F;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     ((void(*)(char*))0xB0)(ptr);
 }
 void print(char *ptr) {
-    syscall_print(ptr);
+    syscall_puts(ptr);
 }
 
-static inline int syscall_chdir(const char* dirname) {
+static inline int syscall_cd(const char* dirname) {
     register volatile int n asm("t1") = 0x40;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(const char *))0xB0)(dirname);
 }
 int chdir(const char *dirname) {
-    int ret = syscall_chdir(dirname)-1;
+    int ret = syscall_cd(dirname)-1;
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
@@ -405,7 +405,7 @@ static inline int syscall_rename(const char* oldpath, const char* newpath) {
 int _rename(const char *oldpath, const char *newpath) {
     int ret = syscall_rename(oldpath, newpath)-1;
     if (ret < 0) {
-        errno = syscall_get_last_error();
+        errno = syscall__get_errno();
     }
     return ret;
 }
