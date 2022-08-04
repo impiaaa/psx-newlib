@@ -99,6 +99,13 @@ char *strrchr(const char *src, int chr) {
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((char *(*)(const char *, int))0xA0)(src, chr);
 }
+/* buggy
+char *strpbrk(const char *s, const char *accept) {
+    register volatile int n asm("t1") = 0x20;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((char *(*)(const char *, const char *))0xA0)(s, accept);
+}
+*/
 size_t strspn(const char *src, const char *list) {
     register volatile int n asm("t1") = 0x21;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -114,6 +121,13 @@ char *strtok(char *src, const char *list) {
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((char *(*)(char *, const char *))0xA0)(src, list);
 }
+/* buggy
+char *strstr(const char *haystack, const char *needle) {
+    register volatile int n asm("t1") = 0x24;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((char *(*)(const char *, const char *))0xA0)(haystack, needle);
+}
+*/
 int toupper(int chr) {
     register volatile int n asm("t1") = 0x25;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -124,6 +138,33 @@ int tolower(int chr) {
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(int))0xA0)(chr);
 }
+/* slow, run from ROM
+void bcopy(const void *src, void *dest, size_t n) {
+    register volatile int n asm("t1") = 0x27;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    ((void(*)(const void *, void *, size_t))0xA0)(src, dest, n);
+}
+void bzero(void *s, size_t n) {
+    register volatile int n asm("t1") = 0x28;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    ((void(*)(void *, size_t))0xA0)(s, n);
+}
+void *memcpy(void *dest, const void *src, size_t n) {
+    register volatile int n asm("t1") = 0x2A;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(void *, const void *, size_t))0xA0)(dest, src, n);
+}
+void *memset(void *s, int c, size_t n) {
+    register volatile int n asm("t1") = 0x2B;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(void *, int, size_t))0xA0)(s, c, n);
+}
+void *memchr(const void *s, int c, size_t n) {
+    register volatile int n asm("t1") = 0x2E;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(const void*, int, size_t))0xA0)(s, c, n);
+}
+*/
 int rand(void) {
     register volatile int n asm("t1") = 0x2F;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -140,12 +181,39 @@ void qsort(void *base, size_t nel, size_t width, int (*callback)(const void *, c
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void(*)(void *, size_t, size_t, int (*)(const void *, const void *)))0xA0)(base, nel, width, callback);
 }
+void *malloc(size_t size) {
+    register volatile int n asm("t1") = 0x33;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(size_t))0xA0)(size);
+}
+void free(void *ptr) {
+    register volatile int n asm("t1") = 0x34;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void(*)(void *))0xA0)(ptr);
+}
 #endif
 void *bsearch(const void *key, const void *base, size_t nel, size_t width, int (*callback)(const void *, const void *)) {
     register volatile int n asm("t1") = 0x36;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void *(*)(const void *, const void *, size_t, size_t, int (*)(const void *, const void *)))0xA0)(key, base, nel, width, callback);
 }
+#ifdef MALLOC_PROVIDED
+void *calloc(size_t nmemb, size_t size) {
+    register volatile int n asm("t1") = 0x37;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(size_t, size_t))0xA0)(nmemb, size);
+}
+void *realloc(void *ptr, size_t size) {
+    register volatile int n asm("t1") = 0x38;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(void *, size_t))0xA0)(ptr, size);
+}
+void InitHeap(unsigned long *head, unsigned long size) {
+    register volatile int n asm("t1") = 0x39;
+    __asm__ volatile("" : "=r"(n) : "r"(n));
+    return ((void *(*)(unsigned long *, unsigned long))0xA0)(head, size);
+}
+#endif
 int getchar(void) {
     register volatile int n asm("t1") = 0x3B;
     __asm__ volatile("" : "=r"(n) : "r"(n));
