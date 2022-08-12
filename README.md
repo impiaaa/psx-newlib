@@ -20,7 +20,7 @@ Then continue with "Configuring and compiling Newlib" below.
 
 ### Option 3: Patching Newlib
 
-1. Copy `psx.c`, `psx.ld`, `psx-bonus.c`, and `psx-printf.s` to `libgloss/mips/`.
+1. Copy `psx.c`, `psx.ld`, `psx-bonus.c`, and `psx-printf.S` to `libgloss/mips/`.
 2. In the top-level Newlib source, run `patch -p1 <psx.patch` (using the full path of `psx.patch`).
 
 Then continue with "Configuring and compiling Newlib" below.
