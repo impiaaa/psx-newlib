@@ -1,5 +1,7 @@
 /*** Newlib system calls ***/
 
+// TODO: make errno a macro that calls syscall__get_errno, so that we don't
+// have to keep calling it in here
 #include <errno.h>
 #undef errno
 extern int errno;
@@ -293,7 +295,9 @@ extern char _end[];
 static const unsigned int* ram_size_ptr = (const unsigned int*)0x60;
 
 void get_mem_info(struct s_mem *mem) {
-    mem->size = (((*ram_size_ptr)<<15) - 0x10000) - (_end - _ftext);
+    // FIXME: get_mem_info is called in crt0 to set up the stack before
+    // hardware_init_hook, where we would have detected the memory size
+    mem->size = (((*ram_size_ptr)<<20) - 0x10000) - (_end - _ftext);
 }
 
 static inline int enterCriticalSection() {
@@ -337,10 +341,15 @@ static inline void syscall_HookEntryInt(t_functionState* f) {
 void hardware_init_hook(void) {
     // crash on out-of-bounds memory access instead of wrapping around and
     // corrupting memory
+    // TODO: get amount of memory by checking for wraparound
     syscall_SetMem(2);
     
     // maybe needed for events to work?
     syscall_ResetEntryInt();
+    
+    // TODO: override read in CD-ROM DCB
+    
+    // TODO: enable and test memcard, perhaps add patches
     
     // needed for BIOS file functions to work
     exitCriticalSection();
