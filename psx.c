@@ -27,52 +27,52 @@ int close(int file) {
     return ret;
 }
 
-typedef struct {
-    char filename[20];
-    int attr;
-    int size;
-    void* next;
-    int sector;
-    int unk;
-} t_direntry;
-typedef struct _dcb t_dcb;
-typedef struct {
-    unsigned int access_mode;
-    unsigned int device_id;
-    char* transfer_buffer;
-    int transfer_length;
-    int position;
-    int flags;
-    int error;
-    t_dcb* dcb;
-    int file_size;
-    int logical_block_number;
-    int control_block_number;
-} t_fcb;
-struct _dcb {
-    char* name_lower;
-    int flags;
-    int sector_size;
-    char* descr;
-    void (*init)(void);
-    int (*open)(t_fcb*,char*,int);
-    int (*in_out)(t_fcb*,int);
-    int (*close)(t_fcb*);
-    int (*ioctl)(t_fcb*,int,int);
-    int (*read)(t_fcb*,void*,int);
-    int (*write)(t_fcb*,void*,int);
-    int (*erase)(t_fcb*,char*);
-    int (*undelete)(t_fcb*,char*);
-    t_direntry* (*firstfile)(t_fcb*,const char*,t_direntry*);
-    t_direntry* (*nextfile)(t_fcb*,t_direntry*);
-    int (*format)(t_fcb*);
-    void (*chdir)(t_fcb*,const char *);
-    void (*rename)(t_fcb*,const char *,t_fcb*,const char *);
-    void (*deinit)(void);
-    void (*testdevice)(t_fcb*);
+struct DIRENTRY {
+    char name[20];
+    long attr;
+    long size;
+    struct DIRENTRY *next;
+    long head;
+    char system[4];
 };
-static t_fcb *const * fcb_table_ptr = (t_fcb *const *)0x140;
-static t_dcb *const * dcb_table_ptr = (t_dcb *const *)0x150;
+struct iob;
+struct device_table {
+    char *dt_string;
+    int dt_type;
+    int dt_bsize;
+    char *dt_desc;
+    void (*dt_init)(void);
+    long (*dt_open)(struct iob *, char *, unsigned long);
+    long (*dt_strategy)(struct iob *, long);
+    long (*dt_close)(struct iob *);
+    long (*dt_ioctl)(struct iob *, long, long);
+    long (*dt_read)(struct iob *, void *, long);
+    long (*dt_write)(struct iob *, void *, long);
+    long (*dt_delete)(struct iob *);
+    long (*dt_undelete)(struct iob *);
+    struct DIRENTRY * (*dt_firstfile)(struct iob *, const char *, struct DIRENTRY *);
+    struct DIRENTRY * (*dt_nextfile)(struct iob *, struct DIRENTRY *);
+    long (*dt_format)(struct iob *);
+    long (*dt_cd)(struct iob *, char *);
+    long (*dt_rename)(struct iob *, char *, struct iob *, char *);
+    void (*dt_remove)(void);
+    int (*dt_else)(struct iob *, char *);
+};
+struct iob {
+    int i_flgs;
+    int i_unit;
+    char *i_ma;
+    unsigned int i_cc;
+    unsigned long i_offset;
+    int i_fstype;
+    int i_errno;
+    struct device_table *i_dp;
+    unsigned long i_size;
+    long i_head;
+    long i_fd;
+};
+static struct iob *const * fcb_table_ptr = (struct iob *const *)0x140;
+static struct device_table *const * dcb_table_ptr = (struct device_table *const *)0x150;
 
 #include <sys/stat.h>
 #define makedev(major, minor) (((minor) & 0xffff) | (((major) & 0xffff) << 16))
@@ -81,48 +81,67 @@ int fstat(int fd, struct stat *st) {
         errno = EBADF;
         return -1;
     }
-    t_fcb *fcb = &(*fcb_table_ptr)[fd];
-    if (fcb->access_mode == 0) {
+    struct iob *fcb = &(*fcb_table_ptr)[fd];
+    if (fcb->i_flgs == 0) {
         errno = ENOENT;
         return -1;
     }
-    st->st_dev = makedev(fcb->dcb - (*dcb_table_ptr), fcb->device_id);
-    st->st_ino = fcb->logical_block_number;
-    st->st_mode = (fcb->flags & 1) ? S_IFCHR : S_IFREG; // TODO check if S_IFDIR
+    st->st_dev = makedev(fcb->i_dp - (*dcb_table_ptr), fcb->i_unit);
+    st->st_ino = fcb->i_head;
+    st->st_mode = 0;
+    // TODO check if S_IFDIR
+    if (fcb->i_fstype&0x01) {
+        // DTTYPE_CHAR character device
+        st->st_mode |= S_IFCHR;
+    }
+    if (fcb->i_fstype&0x02) {
+        // DTTYPE_CONS can be console
+    }
+    if (fcb->i_fstype&0x04) {
+        // DTTYPE_BLOCK block device
+        //st->st_mode |= S_IFBLK;
+    }
+    if (fcb->i_fstype&0x08) {
+        // DTTYPE_RAW raw device that uses fs switch
+    }
+    if (fcb->i_fstype&0x10) {
+        // DTTYPE_FS
+        st->st_mode |= S_IFREG;
+    }
     st->st_nlink = 0;
     st->st_uid = 0; // these could be retrieved from directory record SU
     st->st_gid = 0; // section, but dunno if BIOS reads that
-    st->st_rdev = (fcb->flags & 1) ? fcb->device_id : 0;
-    st->st_size = fcb->file_size;
+    st->st_rdev = (fcb->i_fstype & 0x10) ? 0 : fcb->i_unit;
+    st->st_size = fcb->i_size;
     st->st_atime = 0;
     st->st_mtime = 0;
     st->st_ctime = 0; // this could come from directory record
-    st->st_blksize = fcb->dcb->sector_size;
+    st->st_blksize = fcb->i_dp->dt_bsize;
     st->st_blocks = (st->st_size+st->st_blksize-1)/st->st_blksize;
     return 0;
 }
 
-static inline int syscall_get_device_flag(int fd) {
+static inline int syscall_isatty(int fd) {
     register volatile int n asm("t1") = 0x39;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(int))0xB0)(fd);
 }
 int isatty(int fd) {
-    return syscall_get_device_flag(fd);
+    return syscall_isatty(fd);
 }
 
-static inline int syscall_seek(int fd, int offset, int seektype) {
+static inline int syscall_lseek(int fd, int offset, int seektype) {
     register volatile int n asm("t1") = 0x33;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(int, int, int))0xB0)(fd, offset, seektype);
 }
 int lseek(int file, int ptr, int dir) {
     if (dir == 2) {
-        t_fcb *fcb = &(*fcb_table_ptr)[file];
+        struct iob *fcb = &(*fcb_table_ptr)[file];
         dir = 0;
-        ptr += fcb->file_size;
+        ptr += fcb->i_size;
     }
-    int ret = syscall_seek(file, ptr, dir);
+    int ret = syscall_lseek(file, ptr, dir);
     if (ret < 0) {
         errno = syscall__get_errno();
     }
@@ -138,18 +157,20 @@ int open(const char *name, int flags, int mode) {
     int access   = flags & 3;
     int append   = flags & 0x00008;
     int creat    = flags & 0x00200;
+    int trunc    = flags & 0x00400;
     int excl     = flags & 0x00800;
     int ndelay   = flags & 0x01000;
     int sync     = flags & 0x02000;
     int nonblock = flags & 0x04000;
     int noctty   = flags & 0x08000;
+    int cloexec  = flags & 0x40000;
     int direct   = flags & 0x80000;
     
     int psaccess = access + 1;
-    int psnblock = (ndelay >> 10) | (nonblock >> 12);
     int pscreat  = creat;
     int psnobuf  = direct >> 5; // unused
-    int psnowait = (~(sync >> 2)) & 0x8000;
+    int psnblock = (ndelay >> 10) | (nonblock >> 12);
+    int psnowait = (~(sync << 2)) & 0x8000;
     int ret = syscall_open(name, psaccess|psnblock|pscreat|psnobuf|psnowait);
     if (ret < 0) {
         errno = syscall__get_errno();
@@ -174,23 +195,23 @@ int read(int file, char *ptr, int len) {
 #include <strings.h> // bzero
 #include <stddef.h> // NULL
 int stat(const char *file, struct stat *st) {
-    t_dcb *dcb;
+    struct device_table *dcb;
     int found = 0;
     int i, device_major_id;
     for (int device_major_id = 0; device_major_id < 10 && !found; device_major_id++) {
         dcb = &(*dcb_table_ptr)[device_major_id];
-        if (dcb->name_lower == NULL) {
+        if (dcb->dt_string == NULL) {
             continue;
         }
         for (i = 0; i < 6; i++) {
             if (file[i] == ':' || // filesystem devices
                 file[i] == '\0' || // character devices
-                dcb->name_lower[i] == '\0') // enumerated devices
+                dcb->dt_string[i] == '\0') // enumerated devices
             {
                 found = 1;
                 break;
             }
-            if (tolower(file[i]) != dcb->name_lower[i]) {
+            if (tolower(file[i]) != dcb->dt_string[i]) {
                 found = 0;
                 break;
             }
@@ -207,31 +228,44 @@ int stat(const char *file, struct stat *st) {
         i++;
     }
     
-    if (dcb->firstfile != NULL && file[i] != '\0') {
-        t_direntry dir_e;
-        t_fcb fcb;
-        if (dcb->firstfile(&fcb, file+i+1, &dir_e) == NULL) {
+    if (dcb->dt_firstfile != NULL && file[i] != '\0') {
+        struct DIRENTRY dir_e;
+        struct iob fcb;
+        if (dcb->dt_firstfile(&fcb, file+i+1, &dir_e) == NULL) {
             errno = ENOENT;
             return -1;
         }
         bzero(st, sizeof(struct stat));
         st->st_size = dir_e.size;
-        st->st_blocks = (dir_e.size+dcb->sector_size-1)/dcb->sector_size;
-        st->st_dev = makedev(device_major_id, fcb.device_id);
+        st->st_blocks = (dir_e.size+dcb->dt_bsize-1)/dcb->dt_bsize;
+        st->st_dev = makedev(device_major_id, fcb.i_unit);
     }
     else {
         bzero(st, sizeof(struct stat));
         st->st_dev = makedev(device_major_id, 0);
     }
     
+    st->st_mode = 0;
     // TODO check if S_IFDIR
-    if (dcb->flags&0x01) {
-        st->st_mode = S_IFCHR;
+    if (dcb->dt_type&0x01) {
+        // DTTYPE_CHAR character device
+        st->st_mode |= S_IFCHR;
     }
-    else {
-        st->st_mode = S_IFREG;
+    if (dcb->dt_type&0x02) {
+        // DTTYPE_CONS can be console
     }
-    st->st_blksize = dcb->sector_size;
+    if (dcb->dt_type&0x04) {
+        // DTTYPE_BLOCK block device
+        //st->st_mode |= S_IFBLK;
+    }
+    if (dcb->dt_type&0x08) {
+        // DTTYPE_RAW raw device that uses fs switch
+    }
+    if (dcb->dt_type&0x10) {
+        // DTTYPE_FS
+        st->st_mode |= S_IFREG;
+    }
+    st->st_blksize = dcb->dt_bsize;
     
     return 0;
 }
@@ -319,35 +353,40 @@ static inline int syscall_SetMem(int megabytes) {
 }
 
 typedef struct {
-    void (*function)(void);
+    void (*ra)(void);
     int* sp;
     int* fp;
-    int general[8];
+    int regfile[8];
     int* gp;
-} t_functionState;
+} jmp_buf;
 
-static inline t_functionState* syscall_ResetEntryInt() {
+static inline jmp_buf* syscall_ResetEntryInt() {
     register volatile int n asm("t1") = 0x18;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((t_functionState*(*)(void))0xB0)();
+    return ((jmp_buf*(*)(void))0xB0)();
 }
 
-static inline void syscall_HookEntryInt(t_functionState* f) {
+static inline void syscall_HookEntryInt(jmp_buf* f) {
     register volatile int n asm("t1") = 0x19;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void(*)(t_functionState*))0xB0)(f);
+    return ((void(*)(jmp_buf*))0xB0)(f);
 }
 
 void hardware_init_hook(void) {
     // crash on out-of-bounds memory access instead of wrapping around and
     // corrupting memory
     // TODO: get amount of memory by checking for wraparound
+    // A(B4h) GetSystemInfo just returns ram size global variable
+    // though, ld, elf2psexe, & BIOS expect the initial sp to be set at compile time
     syscall_SetMem(2);
     
     // maybe needed for events to work?
     syscall_ResetEntryInt();
     
     // TODO: override read in CD-ROM DCB
+    // https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/openbios/cdrom/filesystem.c
+    // https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/openbios/cdrom/helpers.c
+    // can't patch A(0xA5) / CdReadSector / cdromBlockReading, routine is in ROM
     
     // TODO: enable and test memcard, perhaps add patches
     
