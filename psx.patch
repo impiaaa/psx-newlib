@@ -1,14 +1,14 @@
-diff -aur newlib-4.1.0-orig/libgloss/mips/Makefile.in newlib-4.1.0-changed/libgloss/mips/Makefile.in
---- newlib-4.1.0-orig/libgloss/mips/Makefile.in	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/libgloss/mips/Makefile.in	2021-05-20 09:28:46.393923135 -0700
+diff -aur newlib-4.3.0.20230120-orig/libgloss/mips/Makefile.in newlib-4.3.0.20230120-changed/libgloss/mips/Makefile.in
+--- newlib-4.3.0.20230120-orig/libgloss/mips/Makefile.in	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/libgloss/mips/Makefile.in	2023-10-03 22:47:52.144574344 -0700
 @@ -76,6 +76,7 @@
- JMR3904OBJS = jmr3904-io.o @part_specific_obj@ ${GENOBJS} ${GENOBJS2}
- CFEOBJS = cfe.o cfe_api.o cfe_mem.o @part_specific_obj@ ${GENOBJS} ${GENOBJS2}
- CYGMONOBJS = open.o close.o cygmon.o @part_specific_obj@ ${GENOBJS}
+ JMR3904OBJS = jmr3904-io.o @MIPS_PART_SPECIFIC_OBJ@ ${GENOBJS} ${GENOBJS2}
+ CFEOBJS = cfe.o cfe_api.o cfe_mem.o @MIPS_PART_SPECIFIC_OBJ@ ${GENOBJS} ${GENOBJS2}
+ CYGMONOBJS = open.o close.o cygmon.o @MIPS_PART_SPECIFIC_OBJ@ ${GENOBJS}
 +PSXOBJS = psx.o syscalls.o getpid.o kill.o putnum.o psx-bonus.o psx-printf.o
  
  # Nullmon cannot support read and write, but the test cases pull them in via libs
- NULLMONOBJS = nullmon.o @part_specific_obj@ ${GENOBJS}
+ NULLMONOBJS = nullmon.o @MIPS_PART_SPECIFIC_OBJ@ ${GENOBJS}
 @@ -140,6 +141,10 @@
  	${AR} ${ARFLAGS} $@ $(CFEOBJS)
  	${RANLIB} $@
@@ -20,12 +20,13 @@ diff -aur newlib-4.1.0-orig/libgloss/mips/Makefile.in newlib-4.1.0-changed/libgl
  # nullmon.a , This is what you want if you want crt0 but NO mon services
  # Supports GDB sim testing, board bringups, ICE operation.
  libnullmon.a: $(NULLMONOBJS)
-Only in newlib-4.1.0-changed/libgloss/mips: psx-bonus.c
-Only in newlib-4.1.0-changed/libgloss/mips: psx.c
-Only in newlib-4.1.0-changed/libgloss/mips: psx-printf.S
-diff -aur newlib-4.1.0-orig/newlib/libc/ctype/tolower.c newlib-4.1.0-changed/newlib/libc/ctype/tolower.c
---- newlib-4.1.0-orig/newlib/libc/ctype/tolower.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/ctype/tolower.c	2021-10-21 21:40:27.764572560 -0700
+Only in newlib-4.3.0.20230120-changed/libgloss/mips: psx-bonus.c
+Only in newlib-4.3.0.20230120-changed/libgloss/mips: psx.c
+Only in newlib-4.3.0.20230120-changed/libgloss/mips: psx.ld
+Only in newlib-4.3.0.20230120-changed/libgloss/mips: psx-printf.S
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/ctype/tolower.c newlib-4.3.0.20230120-changed/newlib/libc/ctype/tolower.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/ctype/tolower.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/ctype/tolower.c	2023-10-03 22:45:18.891828787 -0700
 @@ -60,6 +60,7 @@
  #include <wchar.h>
  #endif
@@ -39,9 +40,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/ctype/tolower.c newlib-4.1.0-changed/new
  #endif
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/ctype/toupper.c newlib-4.1.0-changed/newlib/libc/ctype/toupper.c
---- newlib-4.1.0-orig/newlib/libc/ctype/toupper.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/ctype/toupper.c	2021-05-20 21:37:05.150104334 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/ctype/toupper.c newlib-4.3.0.20230120-changed/newlib/libc/ctype/toupper.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/ctype/toupper.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/ctype/toupper.c	2023-10-03 22:45:18.891828787 -0700
 @@ -61,6 +61,7 @@
  #endif
  
@@ -55,10 +56,10 @@ diff -aur newlib-4.1.0-orig/newlib/libc/ctype/toupper.c newlib-4.1.0-changed/new
  #endif
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/include/machine/setjmp.h newlib-4.1.0-changed/newlib/libc/include/machine/setjmp.h
---- newlib-4.1.0-orig/newlib/libc/include/machine/setjmp.h	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/include/machine/setjmp.h	2021-05-19 22:23:08.317200776 -0700
-@@ -128,7 +128,7 @@
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/include/machine/setjmp.h newlib-4.3.0.20230120-changed/newlib/libc/include/machine/setjmp.h
+--- newlib-4.3.0.20230120-orig/newlib/libc/include/machine/setjmp.h	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/include/machine/setjmp.h	2023-10-03 22:45:18.891828787 -0700
+@@ -132,7 +132,7 @@
  #  define _JBTYPE long long
  # endif
  # ifdef __mips_soft_float
@@ -67,9 +68,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/include/machine/setjmp.h newlib-4.1.0-ch
  # else
  #  define _JBLEN 23
  # endif
-diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/setjmp.S newlib-4.1.0-changed/newlib/libc/machine/mips/setjmp.S
---- newlib-4.1.0-orig/newlib/libc/machine/mips/setjmp.S	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/machine/mips/setjmp.S	2021-05-20 21:27:30.124300545 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/setjmp.S newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/setjmp.S
+--- newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/setjmp.S	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/setjmp.S	2023-10-03 22:45:18.891828787 -0700
 @@ -119,6 +119,7 @@
  #define GPOFF(INDEX) (INDEX * BYTES_PER_WORD)
  #define FPOFF(INDEX) ((INDEX + NUM_GPRS_SAVED) * BYTES_PER_WORD)
@@ -83,10 +84,10 @@ diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/setjmp.S newlib-4.1.0-chang
  
  	.end longjmp
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strcmp.S newlib-4.1.0-changed/newlib/libc/machine/mips/strcmp.S
---- newlib-4.1.0-orig/newlib/libc/machine/mips/strcmp.S	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/machine/mips/strcmp.S	2021-05-20 22:03:22.499991153 -0700
-@@ -82,7 +82,7 @@
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strcmp.S newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strcmp.S
+--- newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strcmp.S	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strcmp.S	2023-10-03 22:47:27.972458059 -0700
+@@ -78,7 +78,7 @@
  #ifndef STRCMP_NAME
  # define STRCMP_NAME strcmp
  #endif
@@ -95,14 +96,14 @@ diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strcmp.S newlib-4.1.0-chang
  #ifdef ANDROID_CHANGES
  LEAF(STRCMP_NAME, 0)
  #else
-@@ -259,3 +259,4 @@
- libc_hidden_builtin_def (STRCMP_NAME)
- # endif
- #endif
+@@ -250,3 +250,4 @@
+ 	.set	reorder
+ 
+ END(STRCMP_NAME)
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strlen.c newlib-4.1.0-changed/newlib/libc/machine/mips/strlen.c
---- newlib-4.1.0-orig/newlib/libc/machine/mips/strlen.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/machine/mips/strlen.c	2021-05-20 22:01:32.635596229 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strlen.c newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strlen.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strlen.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strlen.c	2023-10-03 22:45:18.895828806 -0700
 @@ -20,6 +20,7 @@
  
  /* MIPS16 needs to come first.  */
@@ -116,9 +117,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strlen.c newlib-4.1.0-chang
  	"	.set	reorder\n");
  #endif
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strncpy.c newlib-4.1.0-changed/newlib/libc/machine/mips/strncpy.c
---- newlib-4.1.0-orig/newlib/libc/machine/mips/strncpy.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/machine/mips/strncpy.c	2021-05-20 22:02:06.771719263 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strncpy.c newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strncpy.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/machine/mips/strncpy.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/machine/mips/strncpy.c	2023-10-03 22:45:18.895828806 -0700
 @@ -42,7 +42,7 @@
  #error "UNROLL_FACTOR must be 2 or 4"
  #endif
@@ -133,9 +134,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/machine/mips/strncpy.c newlib-4.1.0-chan
  #endif
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/search/bsearch.c newlib-4.1.0-changed/newlib/libc/search/bsearch.c
---- newlib-4.1.0-orig/newlib/libc/search/bsearch.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/search/bsearch.c	2021-05-20 21:39:49.522630164 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/search/bsearch.c newlib-4.3.0.20230120-changed/newlib/libc/search/bsearch.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/search/bsearch.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/search/bsearch.c	2023-10-03 22:45:18.895828806 -0700
 @@ -54,7 +54,7 @@
  */
  
@@ -151,10 +152,10 @@ diff -aur newlib-4.1.0-orig/newlib/libc/search/bsearch.c newlib-4.1.0-changed/ne
  }
 -
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/findfp.c newlib-4.1.0-changed/newlib/libc/stdio/findfp.c
---- newlib-4.1.0-orig/newlib/libc/stdio/findfp.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/findfp.c	2021-05-20 21:49:35.468886368 -0700
-@@ -114,7 +114,7 @@
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/findfp.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/findfp.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/findfp.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/findfp.c	2023-10-03 22:45:18.895828806 -0700
+@@ -125,7 +125,7 @@
  {
    /* POSIX requires stderr to be opened for reading and writing, even
       when the underlying fd 2 is write-only.  */
@@ -163,9 +164,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/findfp.c newlib-4.1.0-changed/newl
  }
  
  struct glue_with_file {
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/getchar.c newlib-4.1.0-changed/newlib/libc/stdio/getchar.c
---- newlib-4.1.0-orig/newlib/libc/stdio/getchar.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/getchar.c	2021-10-22 10:22:51.252898480 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/getchar.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/getchar.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/getchar.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/getchar.c	2023-10-03 22:45:18.895828806 -0700
 @@ -79,7 +79,7 @@
  }
  
@@ -182,9 +183,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/getchar.c newlib-4.1.0-changed/new
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/gets.c newlib-4.1.0-changed/newlib/libc/stdio/gets.c
---- newlib-4.1.0-orig/newlib/libc/stdio/gets.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/gets.c	2021-10-22 10:23:13.844979140 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/gets.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/gets.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/gets.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/gets.c	2023-10-03 22:45:18.907828865 -0700
 @@ -91,11 +91,11 @@
  }
  
@@ -199,9 +200,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/gets.c newlib-4.1.0-changed/newlib
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/printf.c newlib-4.1.0-changed/newlib/libc/stdio/printf.c
---- newlib-4.1.0-orig/newlib/libc/stdio/printf.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/printf.c	2021-05-20 21:17:59.086646932 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/printf.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/printf.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/printf.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/printf.c	2023-10-03 22:45:18.907828865 -0700
 @@ -44,6 +44,7 @@
  
  #ifndef _REENT_ONLY
@@ -218,9 +219,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/printf.c newlib-4.1.0-changed/newl
  
  #ifdef _NANO_FORMATTED_IO
  int
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/putchar.c newlib-4.1.0-changed/newlib/libc/stdio/putchar.c
---- newlib-4.1.0-orig/newlib/libc/stdio/putchar.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/putchar.c	2021-10-22 10:22:58.880925714 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/putchar.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/putchar.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/putchar.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/putchar.c	2023-10-03 22:45:18.907828865 -0700
 @@ -75,7 +75,7 @@
  }
  
@@ -237,9 +238,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/putchar.c newlib-4.1.0-changed/new
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdio/puts.c newlib-4.1.0-changed/newlib/libc/stdio/puts.c
---- newlib-4.1.0-orig/newlib/libc/stdio/puts.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdio/puts.c	2021-10-22 10:23:27.361027408 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdio/puts.c newlib-4.3.0.20230120-changed/newlib/libc/stdio/puts.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdio/puts.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdio/puts.c	2023-10-03 22:45:18.907828865 -0700
 @@ -122,11 +122,11 @@
  }
  
@@ -254,9 +255,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdio/puts.c newlib-4.1.0-changed/newlib
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/abs.c newlib-4.1.0-changed/newlib/libc/stdlib/abs.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/abs.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/abs.c	2021-05-20 21:23:34.959593481 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/abs.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/abs.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/abs.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/abs.c	2023-10-03 22:45:18.907828865 -0700
 @@ -30,9 +30,10 @@
  */
  
@@ -269,9 +270,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/abs.c newlib-4.1.0-changed/newlib
    return (i < 0) ? -i : i;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atoi.c newlib-4.1.0-changed/newlib/libc/stdlib/atoi.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/atoi.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/atoi.c	2021-05-20 21:24:31.571761174 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/atoi.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/atoi.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/atoi.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/atoi.c	2023-10-03 22:45:18.915828904 -0700
 @@ -46,11 +46,13 @@
  #include <_ansi.h>
  
@@ -286,9 +287,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atoi.c newlib-4.1.0-changed/newli
  #endif /* !_REENT_ONLY */
  
  int
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atol.c newlib-4.1.0-changed/newlib/libc/stdlib/atol.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/atol.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/atol.c	2021-05-20 21:25:08.855872568 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/atol.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/atol.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/atol.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/atol.c	2023-10-03 22:45:18.919828925 -0700
 @@ -6,11 +6,13 @@
  #include <_ansi.h>
  
@@ -303,9 +304,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/atol.c newlib-4.1.0-changed/newli
  #endif /* !_REENT_ONLY */
  
  long
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/labs.c newlib-4.1.0-changed/newlib/libc/stdlib/labs.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/labs.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/labs.c	2021-05-20 21:24:06.679687215 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/labs.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/labs.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/labs.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/labs.c	2023-10-03 22:45:18.919828925 -0700
 @@ -31,7 +31,7 @@
  */
  
@@ -320,28 +321,27 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/labs.c newlib-4.1.0-changed/newli
    return x;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/rand.c newlib-4.1.0-changed/newlib/libc/stdlib/rand.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/rand.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/rand.c	2021-05-20 21:38:39.918407142 -0700
-@@ -57,7 +57,7 @@
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/rand.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/rand.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/rand.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/rand.c	2023-10-03 22:46:38.976220920 -0700
+@@ -62,6 +62,7 @@
+ _Thread_local unsigned long long _tls_rand_next = 1;
+ #endif
  
- #include <stdlib.h>
- #include <reent.h>
--
 +#if 0
  void
  srand (unsigned int seed)
  {
-@@ -80,5 +80,5 @@
+@@ -84,5 +85,5 @@
       _REENT_RAND_NEXT(reent) * __extension__ 6364136223846793005LL + 1;
    return (int)((_REENT_RAND_NEXT(reent) >> 32) & RAND_MAX);
  }
 -
 +#endif
  #endif /* _REENT_ONLY */
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtol.c newlib-4.1.0-changed/newlib/libc/stdlib/strtol.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/strtol.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/strtol.c	2021-05-20 21:21:57.199308567 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/strtol.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/strtol.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/strtol.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/strtol.c	2023-10-03 22:45:18.919828925 -0700
 @@ -229,7 +229,7 @@
  {
  	return _strtol_l (_REENT, s, ptr, base, loc);
@@ -358,9 +358,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtol.c newlib-4.1.0-changed/new
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtoul.c newlib-4.1.0-changed/newlib/libc/stdlib/strtoul.c
---- newlib-4.1.0-orig/newlib/libc/stdlib/strtoul.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/stdlib/strtoul.c	2021-05-20 21:21:24.303214207 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/stdlib/strtoul.c newlib-4.3.0.20230120-changed/newlib/libc/stdlib/strtoul.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/stdlib/strtoul.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/stdlib/strtoul.c	2023-10-03 22:45:18.919828925 -0700
 @@ -203,7 +203,7 @@
  {
  	return _strtoul_l (_REENT, s, ptr, base, loc);
@@ -377,9 +377,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/stdlib/strtoul.c newlib-4.1.0-changed/ne
 -
 +#endif
  #endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/index.c newlib-4.1.0-changed/newlib/libc/string/index.c
---- newlib-4.1.0-orig/newlib/libc/string/index.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/index.c	2021-05-20 21:31:46.357095019 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/index.c newlib-4.3.0.20230120-changed/newlib/libc/string/index.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/index.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/index.c	2023-10-03 22:45:18.923828944 -0700
 @@ -29,10 +29,11 @@
  
  #include <string.h>
@@ -393,9 +393,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/index.c newlib-4.1.0-changed/newl
    return strchr (s, c);
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/rindex.c newlib-4.1.0-changed/newlib/libc/string/rindex.c
---- newlib-4.1.0-orig/newlib/libc/string/rindex.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/rindex.c	2021-05-20 21:32:04.469151871 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/rindex.c newlib-4.3.0.20230120-changed/newlib/libc/string/rindex.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/rindex.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/rindex.c	2023-10-03 22:45:18.935829003 -0700
 @@ -29,10 +29,11 @@
  
  #include <string.h>
@@ -409,9 +409,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/rindex.c newlib-4.1.0-changed/new
    return strrchr (s, c);
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strcat.c newlib-4.1.0-changed/newlib/libc/string/strcat.c
---- newlib-4.1.0-orig/newlib/libc/string/strcat.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strcat.c	2021-05-20 21:28:23.472464261 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strcat.c newlib-4.3.0.20230120-changed/newlib/libc/string/strcat.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strcat.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strcat.c	2023-10-03 22:45:18.935829003 -0700
 @@ -52,7 +52,7 @@
  
  /*SUPPRESS 560*/
@@ -426,9 +426,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strcat.c newlib-4.1.0-changed/new
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strchr.c newlib-4.1.0-changed/newlib/libc/string/strchr.c
---- newlib-4.1.0-orig/newlib/libc/string/strchr.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strchr.c	2021-05-20 21:32:32.049238567 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strchr.c newlib-4.3.0.20230120-changed/newlib/libc/string/strchr.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strchr.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strchr.c	2023-10-03 22:45:18.935829003 -0700
 @@ -50,7 +50,7 @@
  /* DETECTCHAR returns nonzero if (long)X contains the byte used
     to fill (long)MASK. */
@@ -443,9 +443,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strchr.c newlib-4.1.0-changed/new
    return NULL;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strcmp.c newlib-4.1.0-changed/newlib/libc/string/strcmp.c
---- newlib-4.1.0-orig/newlib/libc/string/strcmp.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strcmp.c	2021-05-20 21:30:02.084769395 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strcmp.c newlib-4.3.0.20230120-changed/newlib/libc/string/strcmp.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strcmp.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strcmp.c	2023-10-03 22:45:18.935829003 -0700
 @@ -50,7 +50,7 @@
  #ifndef DETECTNULL
  #error long int is not a 32bit or 64bit byte
@@ -460,9 +460,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strcmp.c newlib-4.1.0-changed/new
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strcpy.c newlib-4.1.0-changed/newlib/libc/string/strcpy.c
---- newlib-4.1.0-orig/newlib/libc/string/strcpy.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strcpy.c	2021-05-20 21:31:01.608954953 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strcpy.c newlib-4.3.0.20230120-changed/newlib/libc/string/strcpy.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strcpy.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strcpy.c	2023-10-03 22:45:18.935829003 -0700
 @@ -50,7 +50,7 @@
  #ifndef DETECTNULL
  #error long int is not a 32bit or 64bit byte
@@ -477,9 +477,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strcpy.c newlib-4.1.0-changed/new
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strcspn.c newlib-4.1.0-changed/newlib/libc/string/strcspn.c
---- newlib-4.1.0-orig/newlib/libc/string/strcspn.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strcspn.c	2021-05-20 21:34:27.193602150 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strcspn.c newlib-4.3.0.20230120-changed/newlib/libc/string/strcspn.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strcspn.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strcspn.c	2023-10-03 22:45:18.935829003 -0700
 @@ -24,7 +24,7 @@
   */
  
@@ -494,9 +494,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strcspn.c newlib-4.1.0-changed/ne
    return s1 - s;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strlen.c newlib-4.1.0-changed/newlib/libc/string/strlen.c
---- newlib-4.1.0-orig/newlib/libc/string/strlen.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strlen.c	2021-05-20 21:31:31.625048855 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strlen.c newlib-4.3.0.20230120-changed/newlib/libc/string/strlen.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strlen.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strlen.c	2023-10-03 22:45:18.935829003 -0700
 @@ -47,7 +47,7 @@
  #ifndef DETECTNULL
  #error long int is not a 32bit or 64bit byte
@@ -511,9 +511,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strlen.c newlib-4.1.0-changed/new
    return str - start;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strncat.c newlib-4.1.0-changed/newlib/libc/string/strncat.c
---- newlib-4.1.0-orig/newlib/libc/string/strncat.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strncat.c	2021-05-20 21:29:39.156698184 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strncat.c newlib-4.3.0.20230120-changed/newlib/libc/string/strncat.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strncat.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strncat.c	2023-10-03 22:45:18.935829003 -0700
 @@ -56,7 +56,7 @@
  #ifndef DETECTNULL
  #error long int is not a 32bit or 64bit byte
@@ -528,9 +528,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strncat.c newlib-4.1.0-changed/ne
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strncmp.c newlib-4.1.0-changed/newlib/libc/string/strncmp.c
---- newlib-4.1.0-orig/newlib/libc/string/strncmp.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strncmp.c	2021-05-20 21:30:26.076844073 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strncmp.c newlib-4.3.0.20230120-changed/newlib/libc/string/strncmp.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strncmp.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strncmp.c	2023-10-03 22:45:18.939829024 -0700
 @@ -50,7 +50,7 @@
  #ifndef DETECTNULL
  #error long int is not a 32bit or 64bit byte
@@ -545,9 +545,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strncmp.c newlib-4.1.0-changed/ne
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strncpy.c newlib-4.1.0-changed/newlib/libc/string/strncpy.c
---- newlib-4.1.0-orig/newlib/libc/string/strncpy.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strncpy.c	2021-05-20 21:31:18.349007300 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strncpy.c newlib-4.3.0.20230120-changed/newlib/libc/string/strncpy.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strncpy.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strncpy.c	2023-10-03 22:45:18.939829024 -0700
 @@ -57,7 +57,7 @@
  #endif
  
@@ -562,9 +562,9 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strncpy.c newlib-4.1.0-changed/ne
  #endif /* not PREFER_SIZE_OVER_SPEED */
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strrchr.c newlib-4.1.0-changed/newlib/libc/string/strrchr.c
---- newlib-4.1.0-orig/newlib/libc/string/strrchr.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strrchr.c	2021-05-20 21:32:53.273305401 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strrchr.c newlib-4.3.0.20230120-changed/newlib/libc/string/strrchr.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strrchr.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strrchr.c	2023-10-03 22:45:18.939829024 -0700
 @@ -28,7 +28,7 @@
  */
  
@@ -574,14 +574,14 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strrchr.c newlib-4.1.0-changed/ne
  char *
  strrchr (const char *s,
  	int i)
-@@ -50,3 +50,4 @@
- 		  
+@@ -51,3 +51,4 @@
+ 
    return (char *) last;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strspn.c newlib-4.1.0-changed/newlib/libc/string/strspn.c
---- newlib-4.1.0-orig/newlib/libc/string/strspn.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strspn.c	2021-05-20 21:33:02.757335286 -0700
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strspn.c newlib-4.3.0.20230120-changed/newlib/libc/string/strspn.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strspn.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strspn.c	2023-10-03 22:45:18.939829024 -0700
 @@ -28,7 +28,7 @@
  */
  
@@ -596,10 +596,10 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strspn.c newlib-4.1.0-changed/new
    return s1 - s;
  }
 +#endif
-diff -aur newlib-4.1.0-orig/newlib/libc/string/strtok.c newlib-4.1.0-changed/newlib/libc/string/strtok.c
---- newlib-4.1.0-orig/newlib/libc/string/strtok.c	2020-12-18 15:50:49.000000000 -0800
-+++ newlib-4.1.0-changed/newlib/libc/string/strtok.c	2021-05-20 21:34:50.225675148 -0700
-@@ -78,6 +78,7 @@
+diff -aur newlib-4.3.0.20230120-orig/newlib/libc/string/strtok.c newlib-4.3.0.20230120-changed/newlib/libc/string/strtok.c
+--- newlib-4.3.0.20230120-orig/newlib/libc/string/strtok.c	2023-01-20 13:01:54.000000000 -0800
++++ newlib-4.3.0.20230120-changed/newlib/libc/string/strtok.c	2023-10-03 22:45:18.939829024 -0700
+@@ -82,6 +82,7 @@
  
  extern char *__strtok_r (char *, const char *, char **, int);
  
@@ -607,7 +607,7 @@ diff -aur newlib-4.1.0-orig/newlib/libc/string/strtok.c newlib-4.1.0-changed/new
  char *
  strtok (register char *__restrict s,
  	register const char *__restrict delim)
-@@ -88,3 +89,4 @@
+@@ -92,3 +93,4 @@
  	return __strtok_r (s, delim, &(_REENT_STRTOK_LAST(reent)), 1);
  }
  #endif

@@ -68,7 +68,7 @@ For example, here's my full configure line, using a ["unified"](https://www.embe
 	    --with-no-pic \
 	    CFLAGS_FOR_TARGET="-g -O2 -DHAVE_BLKSIZE -DHAVE_RENAME"
 
-Then `make` and `make install` as usual. Add the new prefix to your `PATH` if necessary, then you can use `mipsel-elf-gcc` with `-flto -msoft-float -mips1` to build things, and `mipsel-elf-gcc-ld` with `-nodefaultlibs -Tpsx.ld` to link things.
+Then `make` and `make install` as usual. Add the new prefix to your `PATH` if necessary, then you can use `mipsel-elf-gcc` with `-flto -msoft-float -march=r3000` to build things, and `mipsel-elf-gcc-ld` with `-nodefaultlibs -Tpsx.ld` to link things.
 
 ### Platform support
 
@@ -150,7 +150,8 @@ Then `make` and `make install` as usual. Add the new prefix to your `PATH` if ne
 ### To do
 
 * Make a custom, slimmer `crt0.s`. The built-in one is great, but 1) supplies `_exit`, which could be done as a syscall, and 2) zeroes `.bss` and does some other system initialization that the BIOS boot sequence already does.
-* Pass `argv` to main. The boot executable copies some of `system.cnf` to 0x180, but syscall A(0x43) passes parameters to `r4` and `r5` (and where in either of those does the executable name go?).
+* Pass `argv` to main. Syscall A(0x43) passes parameters to `r4` and `r5`, presumably argc and argv (though they are 0 and null for the boot executable)
+* The boot executable copies some of `system.cnf` to 0x180—could this be used for environment?
 * Add syscall versions of malloc and memset.
 * Consider `-O2` vs `-Os` vs `-O3`.
 
