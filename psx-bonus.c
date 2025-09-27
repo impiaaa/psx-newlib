@@ -139,30 +139,30 @@ int tolower(int chr) {
     return ((int(*)(int))0xA0)(chr);
 }
 /* slow, run from ROM
-void bcopy(const void *src, void *dest, size_t n) {
+void bcopy(const void *src, void *dest, size_t size) {
     register volatile int n asm("t1") = 0x27;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    ((void(*)(const void *, void *, size_t))0xA0)(src, dest, n);
+    ((void(*)(const void *, void *, size_t))0xA0)(src, dest, size);
 }
-void bzero(void *s, size_t n) {
+void bzero(void *s, size_t size) {
     register volatile int n asm("t1") = 0x28;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    ((void(*)(void *, size_t))0xA0)(s, n);
+    ((void(*)(void *, size_t))0xA0)(s, size);
 }
-void *memcpy(void *dest, const void *src, size_t n) {
+void *memcpy(void *dest, const void *src, size_t size) {
     register volatile int n asm("t1") = 0x2A;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void *(*)(void *, const void *, size_t))0xA0)(dest, src, n);
+    return ((void *(*)(void *, const void *, size_t))0xA0)(dest, src, size);
 }
-void *memset(void *s, int c, size_t n) {
+void *memset(void *s, int c, size_t size) {
     register volatile int n asm("t1") = 0x2B;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void *(*)(void *, int, size_t))0xA0)(s, c, n);
+    return ((void *(*)(void *, int, size_t))0xA0)(s, c, size);
 }
-void *memchr(const void *s, int c, size_t n) {
+void *memchr(const void *s, int c, size_t size) {
     register volatile int n asm("t1") = 0x2E;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void *(*)(const void*, int, size_t))0xA0)(s, c, n);
+    return ((void *(*)(const void*, int, size_t))0xA0)(s, c, size);
 }
 */
 int rand(void) {
@@ -175,7 +175,7 @@ void srand(unsigned int seed) {
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void(*)(unsigned int))0xA0)(seed);
 }
-#ifdef MALLOC_PROVIDED
+#if defined(MALLOC_PROVIDED) && !defined(PCSX)
 void qsort(void *base, size_t nel, size_t width, int (*callback)(const void *, const void *)) {
     register volatile int n asm("t1") = 0x31;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -197,7 +197,7 @@ void *bsearch(const void *key, const void *base, size_t nel, size_t width, int (
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((void *(*)(const void *, const void *, size_t, size_t, int (*)(const void *, const void *)))0xA0)(key, base, nel, width, callback);
 }
-#ifdef MALLOC_PROVIDED
+#if defined(MALLOC_PROVIDED) && !defined(PCSX)
 void *calloc(size_t nmemb, size_t size) {
     register volatile int n asm("t1") = 0x37;
     __asm__ volatile("" : "=r"(n) : "r"(n));
@@ -211,7 +211,19 @@ void *realloc(void *ptr, size_t size) {
 void InitHeap(unsigned long *head, unsigned long size) {
     register volatile int n asm("t1") = 0x39;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void *(*)(unsigned long *, unsigned long))0xA0)(head, size);
+    ((void *(*)(unsigned long *, unsigned long))0xA0)(head, size);
+}
+
+extern char _end[];
+struct s_mem {
+  unsigned int size;
+  unsigned int icsize;
+  unsigned int dcsize;
+} mem;
+extern void get_mem_info(struct s_mem *);
+void software_init_hook(void) {
+    get_mem_info(&mem);
+    InitHeap(_end, mem.size);
 }
 #endif
 int getchar(void) {
