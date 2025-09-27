@@ -8,7 +8,7 @@ GROUP(-lc -lpsxsys -lgcc)
 SEARCH_DIR(.)
 __DYNAMIC  =  0;
 
-PROVIDE (__stack = 0x801FFFC4);
+PROVIDE (__stack = 0x801FFFC0);
 
 /*
  * Initalize some symbols to be zero so we can reference them in the
