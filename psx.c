@@ -6,6 +6,76 @@
 #undef errno
 extern int errno;
 
+#ifdef PCSX
+static __inline__ void pcsx_checkKernel(int enable) { *((volatile char*)0xBF802088) = enable; }
+static __inline__ int pcsx_isCheckingKernel() { return *((volatile char* const)0xBF802088) != 0; }
+#ifdef MALLOC_PROVIDED
+#include <stdlib.h>
+#include <strings.h>
+#include <assert.h>
+#include <stdio.h>
+static __inline__ void pcsx_initMsan() { *((volatile char* const)0xBF802089) = 0; }
+static __inline__ void pcsx_resetMsan() { *((volatile char* const)0xBF802089) = 1; }
+static __inline__ void* pcsx_msanAlloc(size_t size) {
+    register size_t a0 asm("a0") = size;
+    void* ret;
+    __asm__ volatile("lw %0, 0x208C(%1)" : "=r"(ret) : "r"(0xBF800000), "r"(a0));
+    return ret;
+}
+static __inline__ void pcsx_msanFree(void* ptr) { *((void* volatile* const)0xBF80208C) = ptr; }
+static __inline__ void* pcsx_msanRealloc(void* ptr, size_t size) {
+    register void* a0 asm("a0") = ptr;
+    register size_t a1 asm("a1") = size;
+    void* ret;
+    __asm__ volatile("lw %0, 0x2090(%1)" : "=r"(ret) : "r"(0xBF800000), "r"(a0), "r"(a1));
+    return ret;
+}
+
+void* malloc(size_t size) {
+    return pcsx_msanAlloc(size);
+}
+void free(void* ptr) {
+    pcsx_msanFree(ptr);
+}
+void* realloc(void* ptr, size_t size) {
+    return pcsx_msanRealloc(ptr, size);
+}
+void *calloc(size_t n, size_t size) {
+    void* ptr = pcsx_msanAlloc(n*size);
+    bzero(ptr, n*size);
+    return ptr;
+}
+void* _malloc_r(struct _reent *, size_t size) {
+    return pcsx_msanAlloc(size);
+}
+void _free_r(struct _reent *, void* ptr) {
+    pcsx_msanFree(ptr);
+}
+void* _realloc_r(struct _reent *, void* ptr, size_t size) {
+    return pcsx_msanRealloc(ptr, size);
+}
+void *memalign(size_t align, size_t nbytes) {
+    assert(align >= 4);
+    return pcsx_msanAlloc(nbytes);
+}
+#endif // MALLOC_PROVIDED
+
+void software_init_hook(void) {
+    int t2 = *(volatile int*)0xBF80101C;
+    while (t2<0x80000)
+        t2 += 0x10000;
+    *(volatile int*)0xBF80101C = t2;
+#ifdef MALLOC_PROVIDED
+    pcsx_initMsan();
+    pcsx_resetMsan();
+#endif
+    pcsx_checkKernel(1);
+}
+#else
+static __inline__ void pcsx_checkKernel(int enable) { }
+static __inline__ int pcsx_isCheckingKernel() { return 0; }
+#endif
+
 // I've checked to make sure that all error codes returned by the BIOS line up
 // with the error codes defined in Newlib
 static inline int syscall__get_errno(void) {
@@ -81,9 +151,11 @@ int fstat(int fd, struct stat *st) {
         errno = EBADF;
         return -1;
     }
+    pcsx_checkKernel(0);
     struct iob *fcb = &(*fcb_table_ptr)[fd];
     if (fcb->i_flgs == 0) {
         errno = ENOENT;
+        pcsx_checkKernel(1);
         return -1;
     }
     st->st_dev = makedev(fcb->i_dp - (*dcb_table_ptr), fcb->i_unit);
@@ -118,6 +190,7 @@ int fstat(int fd, struct stat *st) {
     st->st_ctime = 0; // this could come from directory record
     st->st_blksize = fcb->i_dp->dt_bsize;
     st->st_blocks = fcb->i_dp->dt_bsize == 0 ? 0 : (st->st_size+st->st_blksize-1)/st->st_blksize;
+    pcsx_checkKernel(1);
     return 0;
 }
 
@@ -137,7 +210,9 @@ static inline int syscall_lseek(int fd, int offset, int seektype) {
 }
 int lseek(int file, int ptr, int dir) {
     if (dir == 2) {
+        pcsx_checkKernel(0);
         struct iob *fcb = &(*fcb_table_ptr)[file];
+        pcsx_checkKernel(1);
         dir = 0;
         ptr += fcb->i_size;
     }
@@ -199,7 +274,9 @@ int stat(const char *file, struct stat *st) {
     int found = 0;
     int i, device_major_id;
     for (int device_major_id = 0; device_major_id < 10 && !found; device_major_id++) {
+        pcsx_checkKernel(0);
         dcb = &(*dcb_table_ptr)[device_major_id];
+        pcsx_checkKernel(1);
         if (dcb->dt_string == NULL) {
             continue;
         }
@@ -277,6 +354,11 @@ static inline int syscall_write(int fd, char *ptr, int len) {
 }
 int write(int file, char *ptr, int len) {
     int ret = syscall_write(file, ptr, len);
+#ifdef PCSX
+    if (file == 1) {
+        return len;
+    }
+#endif
     if (ret < 0) {
         errno = syscall__get_errno();
     }
@@ -326,12 +408,16 @@ struct s_mem {
 
 extern char _ftext[];
 extern char _end[];
+extern char __stack[];
+char* _maxstack = __stack;
 static const unsigned int* ram_size_ptr = (const unsigned int*)0x60;
 
 void get_mem_info(struct s_mem *mem) {
     // FIXME: get_mem_info is called in crt0 to set up the stack before
     // hardware_init_hook, where we would have detected the memory size
-    mem->size = (((*ram_size_ptr)<<20) - 0x10000) - (_end - _ftext);
+    pcsx_checkKernel(0);
+    mem->size = (((*ram_size_ptr)<<20) - 0x10000) - (_end - _ftext) - (__stack - _maxstack);
+    pcsx_checkKernel(1);
 }
 
 static inline int enterCriticalSection() {
