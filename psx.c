@@ -117,7 +117,7 @@ int fstat(int fd, struct stat *st) {
     st->st_mtime = 0;
     st->st_ctime = 0; // this could come from directory record
     st->st_blksize = fcb->i_dp->dt_bsize;
-    st->st_blocks = (st->st_size+st->st_blksize-1)/st->st_blksize;
+    st->st_blocks = fcb->i_dp->dt_bsize == 0 ? 0 : (st->st_size+st->st_blksize-1)/st->st_blksize;
     return 0;
 }
 
