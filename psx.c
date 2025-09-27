@@ -223,30 +223,54 @@ int lseek(int file, int ptr, int dir) {
     return ret;
 }
 
+static unsigned flags_posix_to_psx(unsigned flags) {
+    unsigned uxread     = flags & 0x0001;
+    unsigned uxwrite    = flags & 0x0002;
+    unsigned uxappend   = flags & 0x0008;
+    unsigned uxcreat    = flags & 0x0200;
+    unsigned uxtrunc    = flags & 0x0400;
+    unsigned uxsync     = flags & 0x2000;
+    unsigned uxnonblock = flags & 0x4000;
+
+    unsigned psread   = uxread;
+    unsigned pswrite  = uxwrite;
+    unsigned psnblock = uxnonblock >> 12;
+    unsigned psappend = uxappend << 5;
+    unsigned pscreat  = uxcreat;
+    unsigned pstrunc  = uxtrunc;
+    unsigned psasync  = uxsync == 0x2000 ? 0 : 0x8000;
+
+    return psread | pswrite | psnblock | psappend | pscreat | pstrunc | psasync;
+}
+
+static unsigned flags_psx_to_posix(unsigned flags) {
+    unsigned psread   = flags & 0x0001;
+    unsigned pswrite  = flags & 0x0002;
+    unsigned psnblock = flags & 0x0004;
+    unsigned psappend = flags & 0x0100;
+    unsigned pscreat  = flags & 0x0200;
+    unsigned pstrunc  = flags & 0x0400;
+    unsigned psasync  = flags & 0x8000;
+
+    unsigned uxread   = psread;
+    unsigned uxwrite  = pswrite;
+    unsigned uxnblock = psnblock << 12;
+    unsigned uxappend = psappend >> 5;
+    unsigned uxcreat  = pscreat;
+    unsigned uxtrunc  = pstrunc;
+    unsigned uxasync  = psasync == 0x8000 ? 0 : 0x2000;
+
+    return uxread | uxwrite | uxnblock | uxappend | uxcreat | uxtrunc | uxasync;
+}
+
 static inline int syscall_open(const char * filename, int mode) {
     register volatile int n asm("t1") = 0x32;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(const char *, int))0xB0)(filename, mode);
 }
 int open(const char *name, int flags, int mode) {
-    int access   = flags & 3;
-    int append   = flags & 0x00008;
-    int creat    = flags & 0x00200;
-    int trunc    = flags & 0x00400;
-    int excl     = flags & 0x00800;
-    int ndelay   = flags & 0x01000;
-    int sync     = flags & 0x02000;
-    int nonblock = flags & 0x04000;
-    int noctty   = flags & 0x08000;
-    int cloexec  = flags & 0x40000;
-    int direct   = flags & 0x80000;
-    
-    int psaccess = access + 1;
-    int pscreat  = creat;
-    int psnobuf  = direct >> 5; // unused
-    int psnblock = (ndelay >> 10) | (nonblock >> 12);
-    int psnowait = (~(sync << 2)) & 0x8000;
-    int ret = syscall_open(name, psaccess|psnblock|pscreat|psnobuf|psnowait);
+    int psmode = flags_posix_to_psx(mode & ~3) | ((mode & 3) + 1);
+    int ret = syscall_open(name, psmode);
     if (ret < 0) {
         errno = syscall__get_errno();
     }
@@ -541,6 +565,60 @@ int _rename(const char *oldpath, const char *newpath) {
     if (ret < 0) {
         errno = syscall__get_errno();
     }
+    return ret;
+}
+
+#include <fcntl.h>
+int fcntl(int fd, int op, ...) {
+    va_list args;
+    int arg;
+    if (fd < 0 || fd >= 16) {
+        errno = EBADF;
+        return -1;
+    }
+    pcsx_checkKernel(0);
+    struct iob *fcb = &(*fcb_table_ptr)[fd];
+    switch (op) {
+        case F_DUPFD:
+        case F_SETFD:
+        case F_SETFL:
+#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200112
+        case F_SETOWN:
+#endif /* __BSD_VISIBLE || __POSIX_VISIBLE >= 200112 */
+        case F_GETLK:
+        case F_SETLK:
+        case F_SETLKW:
+#if __POSIX_VISIBLE >= 200809
+        case F_DUPFD_CLOEXEC:
+#endif
+            va_start(args, 1);
+            arg = va_arg(args, int);
+            break;
+    }
+    int ret;
+    switch (op) {
+        //case F_DUPFD:
+        // TODO
+        //    break;
+        case F_GETFD:
+            ret = 0;
+            break;
+        case F_SETFD:
+            ret = 0;
+            break;
+        case F_GETFL:
+            ret = flags_psx_to_posix(fcb->i_flgs);
+            break;
+        case F_SETFL:
+            fcb->i_flgs = flags_posix_to_psx(arg);
+            ret = 0;
+            break;
+        default:
+            errno = ENOSYS;
+            ret = -1;
+            break;
+    }
+    pcsx_checkKernel(1);
     return ret;
 }
 
