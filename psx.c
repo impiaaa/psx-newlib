@@ -263,12 +263,17 @@ static unsigned flags_psx_to_posix(unsigned flags) {
     return uxread | uxwrite | uxnblock | uxappend | uxcreat | uxtrunc | uxasync;
 }
 
+#include <fcntl.h>
+#include <stdarg.h>
 static inline int syscall_open(const char * filename, int mode) {
     register volatile int n asm("t1") = 0x32;
     __asm__ volatile("" : "=r"(n) : "r"(n));
     return ((int(*)(const char *, int))0xB0)(filename, mode);
 }
-int open(const char *name, int flags, int mode) {
+int open(const char *name, int flags, ...) {
+    va_list args;
+    va_start(args, 1);
+    int mode = va_arg(args, int);
     int psmode = flags_posix_to_psx(mode & ~3) | ((mode & 3) + 1);
     int ret = syscall_open(name, psmode);
     if (ret < 0) {
@@ -568,7 +573,6 @@ int _rename(const char *oldpath, const char *newpath) {
     return ret;
 }
 
-#include <fcntl.h>
 int fcntl(int fd, int op, ...) {
     va_list args;
     int arg;
