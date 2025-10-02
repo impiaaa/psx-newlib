@@ -272,7 +272,7 @@ static inline int syscall_open(const char * filename, int mode) {
 }
 int open(const char *name, int flags, ...) {
     va_list args;
-    va_start(args, 1);
+    va_start(args, flags);
     int mode = va_arg(args, int);
     int psmode = flags_posix_to_psx(mode & ~3) | ((mode & 3) + 1);
     int ret = syscall_open(name, psmode);
@@ -595,7 +595,7 @@ int fcntl(int fd, int op, ...) {
 #if __POSIX_VISIBLE >= 200809
         case F_DUPFD_CLOEXEC:
 #endif
-            va_start(args, 1);
+            va_start(args, op);
             arg = va_arg(args, int);
             break;
     }
