@@ -240,7 +240,7 @@ static unsigned flags_posix_to_psx(unsigned flags) {
     unsigned pstrunc  = uxtrunc;
     unsigned psasync  = uxsync == 0x2000 ? 0 : 0x8000;
 
-    return psread | pswrite | psnblock | psappend | pscreat | pstrunc | psasync;
+    return psread | pswrite | psnblock | psappend | pscreat | pstrunc | psasync | (flags & 0xFFFF0000);
 }
 
 static unsigned flags_psx_to_posix(unsigned flags) {
@@ -260,22 +260,19 @@ static unsigned flags_psx_to_posix(unsigned flags) {
     unsigned uxtrunc  = pstrunc;
     unsigned uxasync  = psasync == 0x8000 ? 0 : 0x2000;
 
-    return uxread | uxwrite | uxnblock | uxappend | uxcreat | uxtrunc | uxasync;
+    return uxread | uxwrite | uxnblock | uxappend | uxcreat | uxtrunc | uxasync | (flags & 0xFFFF0000);
 }
 
 #include <fcntl.h>
 #include <stdarg.h>
-static inline int syscall_open(const char * filename, int mode) {
+static inline int syscall_open(const char * filename, int flags) {
     register volatile int n asm("t1") = 0x32;
     __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(const char *, int))0xB0)(filename, mode);
+    return ((int(*)(const char *, int))0xB0)(filename, flags);
 }
 int open(const char *name, int flags, ...) {
-    va_list args;
-    va_start(args, flags);
-    int mode = va_arg(args, int);
-    int psmode = flags_posix_to_psx(mode & ~3) | ((mode & 3) + 1);
-    int ret = syscall_open(name, psmode);
+    int psflags = flags_posix_to_psx(flags & ~3) | ((flags & 3) + 1);
+    int ret = syscall_open(name, psflags);
     if (ret < 0) {
         errno = syscall__get_errno();
     }
