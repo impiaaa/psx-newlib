@@ -484,6 +484,7 @@ static inline void syscall_HookEntryInt(jmp_buf* f) {
     return ((void(*)(jmp_buf*))0xB0)(f);
 }
 
+register unsigned int cp0status asm ("c0r12");
 void hardware_init_hook(void) {
     // crash on out-of-bounds memory access instead of wrapping around and
     // corrupting memory
@@ -504,6 +505,13 @@ void hardware_init_hook(void) {
     
     // needed for BIOS file functions to work
     exitCriticalSection();
+
+    // Enable GTE.
+    // The BIOS already enables it, but crt0.S disables it again, since it uses
+    // .MIPS.abiflags to enable processor features.
+    // Enabling the GTE needs to happen after the .MIPS.abiflags stuff but
+    // before calling any global constructors. hardware_init_hook fits the bill.
+    cp0status |= 0x40000000;
 }
 
 /*** Not required, but nice to have ***/
