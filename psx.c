@@ -212,9 +212,9 @@ int lseek(int file, int ptr, int dir) {
     if (dir == 2) {
         pcsx_checkKernel(0);
         struct iob *fcb = &(*fcb_table_ptr)[file];
-        pcsx_checkKernel(1);
         dir = 0;
         ptr += fcb->i_size;
+        pcsx_checkKernel(1);
     }
     int ret = syscall_lseek(file, ptr, dir);
     if (ret < 0) {
@@ -296,13 +296,12 @@ int read(int file, char *ptr, int len) {
 #include <strings.h> // bzero
 #include <stddef.h> // NULL
 int stat(const char *file, struct stat *st) {
+    pcsx_checkKernel(0);
     struct device_table *dcb;
     int found = 0;
-    int i, device_major_id;
+    int i, device_major_id, device_minor_id = 0;
     for (int device_major_id = 0; device_major_id < 10 && !found; device_major_id++) {
-        pcsx_checkKernel(0);
         dcb = &(*dcb_table_ptr)[device_major_id];
-        pcsx_checkKernel(1);
         if (dcb->dt_string == NULL) {
             continue;
         }
@@ -311,6 +310,12 @@ int stat(const char *file, struct stat *st) {
                 file[i] == '\0' || // character devices
                 dcb->dt_string[i] == '\0') // enumerated devices
             {
+                if (dcb->dt_string[i] == '\0') {
+                    for (; i < 6 && file[i] != ':' && file[i] != '\0'; i++) {
+                        char l = tolower(file[i]);
+                        device_minor_id = (device_minor_id << 4) | (l >= 'a' ? l - 'a' + 10 : l - '0');
+                    }
+                }
                 found = 1;
                 break;
             }
@@ -323,6 +328,7 @@ int stat(const char *file, struct stat *st) {
     
     if (found == 0) {
         errno = EINVAL;
+        pcsx_checkKernel(1);
         return -1;
     }
     
@@ -334,20 +340,22 @@ int stat(const char *file, struct stat *st) {
     if (dcb->dt_firstfile != NULL && file[i] != '\0') {
         struct DIRENTRY dir_e;
         struct iob fcb;
+        fcb.i_unit = device_minor_id;
         if (dcb->dt_firstfile(&fcb, file+i+1, &dir_e) == NULL) {
             errno = ENOENT;
+            pcsx_checkKernel(1);
             return -1;
         }
         bzero(st, sizeof(struct stat));
         st->st_size = dir_e.size;
         st->st_blocks = (dir_e.size+dcb->dt_bsize-1)/dcb->dt_bsize;
-        st->st_dev = makedev(device_major_id, fcb.i_unit);
+        st->st_ino = dir_e.head;
     }
     else {
         bzero(st, sizeof(struct stat));
-        st->st_dev = makedev(device_major_id, 0);
     }
     
+    st->st_dev = makedev(device_major_id, device_minor_id);
     st->st_mode = 0;
     // TODO check if S_IFDIR
     if (dcb->dt_type&0x01) {
@@ -369,6 +377,7 @@ int stat(const char *file, struct stat *st) {
         st->st_mode |= S_IFREG;
     }
     st->st_blksize = dcb->dt_bsize;
+    pcsx_checkKernel(1);
     
     return 0;
 }
