@@ -58,23 +58,16 @@ void *memalign(size_t align, size_t nbytes) {
     assert(align >= 4);
     return pcsx_msanAlloc(nbytes);
 }
-#endif // MALLOC_PROVIDED
-
-void software_init_hook(void) {
-    int t2 = *(volatile int*)0xBF80101C;
-    while (t2<0x80000)
-        t2 += 0x10000;
-    *(volatile int*)0xBF80101C = t2;
-#ifdef MALLOC_PROVIDED
-    pcsx_initMsan();
-    pcsx_resetMsan();
-#endif
-    pcsx_checkKernel(1);
+void *_calloc_r(struct _reent *, size_t n, size_t size) {
+    void* ptr = pcsx_msanAlloc(n*size);
+    bzero(ptr, n*size);
+    return ptr;
 }
-#else
+#endif // MALLOC_PROVIDED
+#else // PCSX
 static __inline__ void pcsx_checkKernel(int enable) { }
 static __inline__ int pcsx_isCheckingKernel() { return 0; }
-#endif
+#endif // PCSX
 
 // I've checked to make sure that all error codes returned by the BIOS line up
 // with the error codes defined in Newlib
@@ -227,9 +220,9 @@ static unsigned flags_posix_to_psx(unsigned flags) {
     unsigned uxread     = flags & 0x0001;
     unsigned uxwrite    = flags & 0x0002;
     unsigned uxappend   = flags & 0x0008;
+    unsigned uxasync    = flags & 0x0040; // not exactly the same
     unsigned uxcreat    = flags & 0x0200;
     unsigned uxtrunc    = flags & 0x0400;
-    unsigned uxsync     = flags & 0x2000;
     unsigned uxnonblock = flags & 0x4000;
 
     unsigned psread   = uxread;
@@ -238,7 +231,7 @@ static unsigned flags_posix_to_psx(unsigned flags) {
     unsigned psappend = uxappend << 5;
     unsigned pscreat  = uxcreat;
     unsigned pstrunc  = uxtrunc;
-    unsigned psasync  = uxsync == 0x2000 ? 0 : 0x8000;
+    unsigned psasync  = uxasync << 9;
 
     return psread | pswrite | psnblock | psappend | pscreat | pstrunc | psasync | (flags & 0xFFFF0000);
 }
@@ -258,7 +251,7 @@ static unsigned flags_psx_to_posix(unsigned flags) {
     unsigned uxappend = psappend >> 5;
     unsigned uxcreat  = pscreat;
     unsigned uxtrunc  = pstrunc;
-    unsigned uxasync  = psasync == 0x8000 ? 0 : 0x2000;
+    unsigned uxasync  = psasync >> 9;
 
     return uxread | uxwrite | uxnblock | uxappend | uxcreat | uxtrunc | uxasync | (flags & 0xFFFF0000);
 }
@@ -522,6 +515,31 @@ void hardware_init_hook(void) {
     // before calling any global constructors. hardware_init_hook fits the bill.
     cp0status |= 0x40000000;
 }
+
+void software_init_hook(void) {
+#ifdef PCSX
+    pcsx_checkKernel(0);
+#endif
+
+    // Minor optimization: Enable I-cache on ROM calls
+    int* a0table = (int*)0x00000200;
+    for (int i = 0; i < 192; i++) {
+        a0table[i] &= 0x9FFFFFFF;
+    }
+
+#ifdef PCSX
+    int t2 = *(volatile int*)0xBF80101C;
+    while (t2<0x80000)
+        t2 += 0x10000;
+    *(volatile int*)0xBF80101C = t2;
+#ifdef MALLOC_PROVIDED
+    pcsx_initMsan();
+    pcsx_resetMsan();
+#endif
+    pcsx_checkKernel(1);
+#endif
+}
+
 
 /*** Not required, but nice to have ***/
 
