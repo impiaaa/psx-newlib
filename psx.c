@@ -69,19 +69,31 @@ static __inline__ void pcsx_checkKernel(int enable) { }
 static __inline__ int pcsx_isCheckingKernel() { return 0; }
 #endif // PCSX
 
-// I've checked to make sure that all error codes returned by the BIOS line up
-// with the error codes defined in Newlib
-static inline int syscall__get_errno(void) {
-    register volatile int n asm("t1") = 0x54;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(void))0xB0)();
+#define ROMCALL(vector, number, returntype, param_sig, parameters) { \
+    register volatile int n asm("t1") = number; \
+    __asm__ volatile("" : "=r"(n) : "r"(n)); \
+    asm("addiu $sp, $sp, -16"); \
+    returntype ret = ((returntype(*)param_sig)vector)parameters; \
+    asm("addiu $sp, $sp, 16"); \
+    return ret; \
 }
 
-static inline int syscall_close(int fd) {
-    register volatile int n asm("t1") = 0x36;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int))0xB0)(fd);
+#define ROMCALLV(vector, number, param_sig, parameters) { \
+    register volatile int n asm("t1") = number; \
+    __asm__ volatile("" : "=r"(n) : "r"(n)); \
+    asm("addiu $sp, $sp, -16"); \
+    ((void(*)param_sig)vector)parameters; \
+    asm("addiu $sp, $sp, 16"); \
 }
+
+#define A0CALL(number, returntype, param_sig, parameters) ROMCALL(0xA0, number, returntype, param_sig, parameters)
+#define B0CALL(number, returntype, param_sig, parameters) ROMCALL(0xB0, number, returntype, param_sig, parameters)
+
+// I've checked to make sure that all error codes returned by the BIOS line up
+// with the error codes defined in Newlib
+static inline int syscall__get_errno(void) B0CALL(0x54, int, (void), ())
+
+static inline int syscall_close(int fd) B0CALL(0x36, int, (int), (fd))
 int close(int file) {
     int ret = syscall_close(file);
     if (ret < 0) {
@@ -187,20 +199,12 @@ int fstat(int fd, struct stat *st) {
     return 0;
 }
 
-static inline int syscall_isatty(int fd) {
-    register volatile int n asm("t1") = 0x39;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int))0xB0)(fd);
-}
+static inline int syscall_isatty(int fd) B0CALL(0x39, int, (int), (fd))
 int isatty(int fd) {
     return syscall_isatty(fd);
 }
 
-static inline int syscall_lseek(int fd, int offset, int seektype) {
-    register volatile int n asm("t1") = 0x33;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int, int, int))0xB0)(fd, offset, seektype);
-}
+static inline int syscall_lseek(int fd, int offset, int seektype) B0CALL(0x33, int, (int, int, int), (fd, offset, seektype))
 int lseek(int file, int ptr, int dir) {
     if (dir == 2) {
         pcsx_checkKernel(0);
@@ -258,11 +262,7 @@ static unsigned flags_psx_to_posix(unsigned flags) {
 
 #include <fcntl.h>
 #include <stdarg.h>
-static inline int syscall_open(const char * filename, int flags) {
-    register volatile int n asm("t1") = 0x32;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(const char *, int))0xB0)(filename, flags);
-}
+static inline int syscall_open(const char * filename, int flags) B0CALL(0x32, int, (const char *, int), (filename, flags))
 int open(const char *name, int flags, ...) {
     int psflags = flags_posix_to_psx(flags & ~3) | ((flags & 3) + 1);
     int ret = syscall_open(name, psflags);
@@ -272,11 +272,7 @@ int open(const char *name, int flags, ...) {
     return ret;
 }
 
-static inline int syscall_read(int fd, char *ptr, int len) {
-    register volatile int n asm("t1") = 0x34;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int, char*, int))0xB0)(fd, ptr, len);
-}
+static inline int syscall_read(int fd, char *ptr, int len) B0CALL(0x34, int, (int, char *, int), (fd, ptr, len))
 int read(int file, char *ptr, int len) {
     int ret = syscall_read(file, ptr, len);
     if (ret < 0) {
@@ -290,6 +286,7 @@ int read(int file, char *ptr, int len) {
 #include <stddef.h> // NULL
 int stat(const char *file, struct stat *st) {
     pcsx_checkKernel(0);
+    asm volatile("");
     struct device_table *dcb;
     int found = 0;
     int i, device_major_id, device_minor_id = 0;
@@ -334,7 +331,10 @@ int stat(const char *file, struct stat *st) {
         struct DIRENTRY dir_e;
         struct iob fcb;
         fcb.i_unit = device_minor_id;
-        if (dcb->dt_firstfile(&fcb, file+i+1, &dir_e) == NULL) {
+        asm("addiu $sp, $sp, -16");
+        struct DIRENTRY *found = dcb->dt_firstfile(&fcb, file+i+1, &dir_e);
+        asm("addiu $sp, $sp, 16");
+        if (found == NULL) {
             errno = ENOENT;
             pcsx_checkKernel(1);
             return -1;
@@ -375,11 +375,7 @@ int stat(const char *file, struct stat *st) {
     return 0;
 }
 
-static inline int syscall_write(int fd, char *ptr, int len) {
-    register volatile int n asm("t1") = 0x35;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int, char*, int))0xB0)(fd, ptr, len);
-}
+static inline int syscall_write(int fd, char *ptr, int len) B0CALL(0x35, int, (int, char *, int), (fd, ptr, len))
 int write(int file, char *ptr, int len) {
     int ret = syscall_write(file, ptr, len);
 #ifdef PCSX
@@ -393,11 +389,7 @@ int write(int file, char *ptr, int len) {
     return ret;
 }
 
-static inline int syscall_erase(char* filename) {
-    register volatile int n asm("t1") = 0x45;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(const char *))0xB0)(filename);
-}
+static inline int syscall_erase(const char* filename) B0CALL(0x45, int, (const char *), (filename))
 int unlink(char *name) {
     int ret = syscall_erase(name)-1;
     if (ret < 0) {
@@ -408,7 +400,7 @@ int unlink(char *name) {
 
 /*** Unsupported by hardware ***/
 
-#if 1
+#if 0
 // Establish a new name for an existing file, a.k.a. "hardlink."
 int link(char *existing, char *new) {
     errno = ENOSYS;
@@ -443,6 +435,8 @@ static const unsigned int* ram_size_ptr = (const unsigned int*)0x60;
 void get_mem_info(struct s_mem *mem) {
     // FIXME: get_mem_info is called in crt0 to set up the stack before
     // hardware_init_hook, where we would have detected the memory size
+    register char* sp asm("sp");
+    if (sp < _maxstack && sp > _end) _maxstack = sp;
     pcsx_checkKernel(0);
     mem->size = (((*ram_size_ptr)<<20) - 0x10000) - (_end - _ftext) - (__stack - _maxstack);
     pcsx_checkKernel(1);
@@ -460,11 +454,7 @@ static inline void exitCriticalSection() {
     __asm__ volatile("syscall\n" : "=r"(n) : "r"(n) : "at", "v0", "v1", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "memory");
 }
 
-static inline int syscall_SetMem(int megabytes) {
-    register volatile int n asm("t1") = 0x9F;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int))0xA0)(megabytes);
-}
+static inline int syscall_SetMem(int megabytes) A0CALL(0x9F, int, (int), (megabytes))
 
 typedef struct {
     void (*ra)(void);
@@ -474,17 +464,9 @@ typedef struct {
     int* gp;
 } jmp_buf;
 
-static inline jmp_buf* syscall_ResetEntryInt() {
-    register volatile int n asm("t1") = 0x18;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((jmp_buf*(*)(void))0xB0)();
-}
+static inline jmp_buf* syscall_ResetEntryInt() B0CALL(0x18, jmp_buf*, (void), ())
 
-static inline void syscall_HookEntryInt(jmp_buf* f) {
-    register volatile int n asm("t1") = 0x19;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((void(*)(jmp_buf*))0xB0)(f);
-}
+static inline void syscall_HookEntryInt(jmp_buf* f) ROMCALLV(0xB0, 0x19, (jmp_buf*), (f))
 
 register unsigned int cp0status asm ("c0r12");
 void hardware_init_hook(void) {
@@ -543,11 +525,7 @@ void software_init_hook(void) {
 
 /*** Not required, but nice to have ***/
 
-static inline int syscall_ioctl(int fd, unsigned long request, void* arg) {
-    register volatile int n asm("t1") = 0x37;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(int, unsigned long, void*))0xB0)(fd, request, arg);
-}
+static inline int syscall_ioctl(int fd, unsigned long request, void* arg) B0CALL(0x37, int, (int, unsigned long, void*), (fd, request, arg))
 int ioctl(int fd, unsigned long request, void* arg) {
     int ret = syscall_ioctl(fd, request, arg);
     if (ret < 0) {
@@ -559,31 +537,19 @@ int ioctl(int fd, unsigned long request, void* arg) {
 /*
 // supplied by crt0
 // TODO uncomment when custom crt0
-static inline void syscall__exit(int code) {
-    register volatile int n asm("t1") = 0x3A;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    ((void(*)(int))0xA0)(code);
-}
+static inline void syscall__exit(int code) ROMCALLV(0xA0, 0x3A, (int), (code))
 void _exit(int code) {
     syscall__exit(code);
     __builtin_unreachable();
 }
 */
 
-static inline void syscall_puts(char *ptr) {
-    register volatile int n asm("t1") = 0x3F;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    ((void(*)(char*))0xB0)(ptr);
-}
+static inline void syscall_puts(char *ptr) ROMCALLV(0xB0, 0x3F, (char *), (ptr))
 void print(char *ptr) {
     syscall_puts(ptr);
 }
 
-static inline int syscall_cd(const char* dirname) {
-    register volatile int n asm("t1") = 0x40;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(const char *))0xB0)(dirname);
-}
+static inline int syscall_cd(const char* dirname) B0CALL(0x40, int, (const char*), (dirname))
 int chdir(const char *dirname) {
     int ret = syscall_cd(dirname)-1;
     if (ret < 0) {
@@ -592,11 +558,7 @@ int chdir(const char *dirname) {
     return ret;
 }
 
-static inline int syscall_rename(const char* oldpath, const char* newpath) {
-    register volatile int n asm("t1") = 0x44;
-    __asm__ volatile("" : "=r"(n) : "r"(n));
-    return ((int(*)(const char *, const char *))0xB0)(oldpath, newpath);
-}
+static inline int syscall_rename(const char* oldpath, const char* newpath) B0CALL(0x44, int, (const char *, const char *), (oldpath, newpath))
 int _rename(const char *oldpath, const char *newpath) {
     int ret = syscall_rename(oldpath, newpath)-1;
     if (ret < 0) {
