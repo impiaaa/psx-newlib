@@ -7,7 +7,10 @@
 extern int errno;
 
 #ifdef PCSX
-static __inline__ void pcsx_checkKernel(int enable) { *((volatile char*)0xBF802088) = enable; }
+static __inline__ void pcsx_checkKernel(int enable) {
+    *((volatile char*)0xBF802088) = enable;
+    asm volatile("");
+}
 static __inline__ int pcsx_isCheckingKernel() { return *((volatile char* const)0xBF802088) != 0; }
 #ifdef MALLOC_PROVIDED
 #include <stdlib.h>
@@ -72,7 +75,7 @@ static __inline__ int pcsx_isCheckingKernel() { return 0; }
 #define ROMCALL(vector, number, returntype, param_sig, parameters) { \
     register volatile int n asm("t1") = number; \
     __asm__ volatile("" : "=r"(n) : "r"(n)); \
-    asm("addiu $sp, $sp, -16"); \
+    asm("addiu $sp, $sp, -16" ::: "sp"); \
     returntype ret = ((returntype(*)param_sig)vector)parameters; \
     asm("addiu $sp, $sp, 16"); \
     return ret; \
@@ -81,7 +84,7 @@ static __inline__ int pcsx_isCheckingKernel() { return 0; }
 #define ROMCALLV(vector, number, param_sig, parameters) { \
     register volatile int n asm("t1") = number; \
     __asm__ volatile("" : "=r"(n) : "r"(n)); \
-    asm("addiu $sp, $sp, -16"); \
+    asm("addiu $sp, $sp, -16" ::: "sp"); \
     ((void(*)param_sig)vector)parameters; \
     asm("addiu $sp, $sp, 16"); \
 }
@@ -102,6 +105,14 @@ int close(int file) {
     return ret;
 }
 
+struct EvCB {
+    unsigned long desc;
+    long status;
+    long spec;
+    long mode;
+    long (*FHandler)();
+    long system[2];
+};
 struct DIRENTRY {
     char name[20];
     long attr;
@@ -146,6 +157,8 @@ struct iob {
     long i_head;
     long i_fd;
 };
+static struct EvCB *const * evcb_table_ptr = (struct EvCB *const *)0x120;
+static size_t * evcb_table_size = (size_t *)0x124;
 static struct iob *const * fcb_table_ptr = (struct iob *const *)0x140;
 static struct device_table *const * dcb_table_ptr = (struct device_table *const *)0x150;
 
@@ -286,7 +299,6 @@ int read(int file, char *ptr, int len) {
 #include <stddef.h> // NULL
 int stat(const char *file, struct stat *st) {
     pcsx_checkKernel(0);
-    asm volatile("");
     struct device_table *dcb;
     int found = 0;
     int i, device_major_id, device_minor_id = 0;
@@ -442,6 +454,156 @@ void get_mem_info(struct s_mem *mem) {
     pcsx_checkKernel(1);
 }
 
+static inline long syscall_CdAsyncSeekL(const unsigned char* sector) A0CALL(0x78, long, (const unsigned char*), (sector))
+
+static inline long syscall_CdAsyncReadSector(unsigned count, void* dest, unsigned mode) A0CALL(0x7E, long, (unsigned, void*, unsigned), (count, dest, mode))
+
+static inline void syscall_IOException(long type, long code) ROMCALLV(0xA0, 0xA1, (long, long), (type, code))
+
+static inline long syscall_TestEvent(long event) B0CALL(0x0B, long, (long), (event))
+
+/*
+    From OpenBIOS:
+    The original implementation of this function has a critical bug. The block
+    of code that computes the MSF of the sector to read is inside the retry
+    loop. Because the "sector" variable is modified, it changes on each retry,
+    so every try but the first will use the wrong sector number.
+    This function is also left in ROM, so it can't be patched directly, and
+    patching individual instructions wouldn't be easy anyway. Instead, bring in
+    OpenBIOS's fixed implementation and patch in references to it.
+*/
+static int g_cdEventDNE, g_cdEventEND, g_cdEventERR;
+int CdReadSector(int count, int sector, char* buffer) {
+    int retries;
+
+    sector += 150;
+
+    int minutes = sector / 4500;
+    sector %= 4500;
+    uint8_t msf[3] = {(minutes % 10) + (minutes / 10) * 0x10, ((sector / 75) % 10) + ((sector / 75) / 10) * 0x10,
+                      ((sector % 75) % 10) + ((sector % 75) / 10) * 0x10};
+
+    for (retries = 0; retries < 10; retries++) {
+        int cyclesToWait = 99999;
+        while (!syscall_CdAsyncSeekL(msf) && (--cyclesToWait > 0));
+
+        if (cyclesToWait < 1) {
+            syscall_IOException(0x44, 0x0b);
+            return -1;
+        }
+
+        while (!syscall_TestEvent(g_cdEventDNE)) {
+            if (syscall_TestEvent(g_cdEventERR)) {
+                syscall_IOException(0x44, 0x0c);
+                return -1;
+            }
+        }
+
+        cyclesToWait = 99999;
+        while (!syscall_CdAsyncReadSector(count, buffer, 0x80) && (--cyclesToWait > 0));
+        if (cyclesToWait < 1) {
+            syscall_IOException(0x44, 0x0c);
+            return -1;
+        }
+        while (1) {
+            // Here, the original code basically does the following:
+            //   if (cyclesToWait < 1) return 1;
+            // which is 1) useless, since cyclesToWait never mutates
+            // and 2) senseless as we're supposed to return the
+            // number of sectors read.
+            // An optimizing compiler would cull it out anyway, so
+            // it's no use letting it here.
+            if (syscall_TestEvent(g_cdEventDNE)) {
+                return count;
+            }
+            if (syscall_TestEvent(g_cdEventERR)) {
+                break;
+            }
+            if (syscall_TestEvent(g_cdEventEND)) {
+                syscall_IOException(0x44, 0x17);
+                return -1;
+            }
+        }
+        syscall_IOException(0x44, 0x16);
+    }
+
+    syscall_IOException(0x44, 0x0c);
+    return -1;
+}
+
+static inline long syscall_CdGetStatus(void) A0CALL(0xA6, long, (void), ())
+
+long dev_cd_read(struct iob *file, void *buffer_, long size) {
+    pcsx_checkKernel(0);
+    char *buffer = (char *)buffer_;
+    if ((size & 0x7ff) || (file->i_offset & 0x7ff) || (size < 0) || (file->i_offset >= file->i_size)) {
+        file->i_errno = EINVAL;
+        pcsx_checkKernel(1);
+        return -1;
+    }
+
+    size >>= 11;
+    // The original implementation also re-reads the ToC, but that's a private
+    // function, and checks if the disc has changed, but that's a private global
+    // variable. We'll just have to hope that the ToC has been read and that the
+    // disc hasn't changed.
+    if ((syscall_CdGetStatus() & 0x10) || (CdReadSector(size, file->i_head + (file->i_offset >> 11), buffer) != size)) {
+        file->i_errno = EBUSY;
+        pcsx_checkKernel(1);
+        return -1;
+    }
+
+    size <<= 11;
+    unsigned offset = file->i_offset;
+    if (file->i_size < (offset + size)) size = file->i_size - offset;
+    file->i_offset = offset + size;
+
+    pcsx_checkKernel(1);
+    return size;
+}
+
+static void** a0table = (void**)0x00000200;
+
+static void patch_CdReadSector(void) {
+    pcsx_checkKernel(0);
+
+    void* oldReadSector = a0table[0xA5];
+    if (oldReadSector == (void*)CdReadSector) {
+        return;
+    }
+    a0table[0xA5] = (void*)CdReadSector;
+
+    void* oldDevCdRead = a0table[0x60];
+    for (int device_major_id = 0; device_major_id < 10; device_major_id++) {
+        struct device_table *dcb = &(*dcb_table_ptr)[device_major_id];
+        if ((void*)(dcb->dt_read) == oldDevCdRead) {
+            dcb->dt_read = dev_cd_read;
+        }
+    }
+    // CdReadSector does reference global variables g_cdEventDNE, g_cdEventEND,
+    // and g_cdEventERR, but those are just event IDs. Search for them in the
+    // event table.
+    for (unsigned i = 0; i < ((*evcb_table_size)/sizeof(struct EvCB)); i++) {
+        struct EvCB *ev =  &(*evcb_table_ptr)[i];
+        if (ev->desc == 0xF0000003 && ev->mode == 0x2000) {
+            unsigned handle = 0xF1000000 | i;
+            switch (ev->spec) {
+                case 0x20:
+                    g_cdEventDNE = handle;
+                    break;
+                case 0x80:
+                    g_cdEventEND = handle;
+                    break;
+                case 0x8000:
+                    g_cdEventERR = handle;
+                    break;
+            }
+        }
+    }
+    a0table[0x60] = (void*)dev_cd_read;
+    pcsx_checkKernel(1);
+}
+
 static inline int enterCriticalSection() {
     register volatile int n asm("a0") = 1;
     register volatile int r asm("v0");
@@ -469,44 +631,41 @@ static inline jmp_buf* syscall_ResetEntryInt() B0CALL(0x18, jmp_buf*, (void), ()
 static inline void syscall_HookEntryInt(jmp_buf* f) ROMCALLV(0xB0, 0x19, (jmp_buf*), (f))
 
 register unsigned int cp0status asm ("c0r12");
+
 void hardware_init_hook(void) {
-    // crash on out-of-bounds memory access instead of wrapping around and
-    // corrupting memory
+    // Crash on out-of-bounds memory access instead of wrapping around and
+    // corrupting memory.
     // TODO: get amount of memory by checking for wraparound
     // A(B4h) GetSystemInfo just returns ram size global variable
     // though, ld, elf2psexe, & BIOS expect the initial sp to be set at compile time
     syscall_SetMem(2);
-    
+
     // maybe needed for events to work?
     syscall_ResetEntryInt();
-    
-    // TODO: override read in CD-ROM DCB
-    // https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/openbios/cdrom/filesystem.c
-    // https://github.com/grumpycoders/pcsx-redux/blob/main/src/mips/openbios/cdrom/helpers.c
-    // can't patch A(0xA5) / CdReadSector / cdromBlockReading, routine is in ROM
-    
-    // TODO: enable and test memcard, perhaps add patches
-    
-    // needed for BIOS file functions to work
-    exitCriticalSection();
 
-    // Enable GTE.
-    // The BIOS already enables it, but crt0.S disables it again, since it uses
-    // .MIPS.abiflags to enable processor features.
+    patch_CdReadSector();
+
+    // TODO: enable and test memcard, perhaps add patches
+
+    // Enable the GTE.
+    // The BIOS already enables it, but Newlib crt0.S disables it again, since
+    // it uses .MIPS.abiflags to enable processor features.
     // Enabling the GTE needs to happen after the .MIPS.abiflags stuff but
     // before calling any global constructors. hardware_init_hook fits the bill.
     cp0status |= 0x40000000;
+
+    // Finally, the BIOS calls enterCriticalSection before executing the EXE,
+    // but file functions rely on events triggered by interrupts, so we need
+    // them back on.
+    exitCriticalSection();
 }
 
 void software_init_hook(void) {
-#ifdef PCSX
     pcsx_checkKernel(0);
-#endif
 
     // Minor optimization: Enable I-cache on ROM calls
-    int* a0table = (int*)0x00000200;
     for (int i = 0; i < 192; i++) {
-        a0table[i] &= 0x9FFFFFFF;
+        ((unsigned*)a0table)[i] &= 0x9FFFFFFFu;
     }
 
 #ifdef PCSX
