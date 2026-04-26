@@ -1,3 +1,4 @@
+#define BUFFERING
 /*** Newlib system calls ***/
 
 // TODO: make errno a macro that calls syscall__get_errno, so that we don't
@@ -153,8 +154,19 @@ static struct device_table *const * dcb_table_ptr = (struct device_table *const 
 // with the error codes defined in Newlib
 static inline int syscall__get_errno(void) B0CALL(0x54, int, (void), ())
 
+#include <stdlib.h>
+
 static inline int syscall_close(int fd) B0CALL(0x36, int, (int), (fd))
 int close(int file) {
+#ifdef BUFFERING
+    pcsx_checkKernel(0);
+    struct iob *fcb = &(*fcb_table_ptr)[file];
+    if ((fcb->i_fstype & 0x04) != 0 && fcb->i_ma == NULL) {
+        free(fcb->i_ma);
+        fcb->i_ma = NULL;
+    }
+    pcsx_checkKernel(1);
+#endif
     int ret = syscall_close(file);
     if (ret < 0) {
         errno = syscall__get_errno();
@@ -282,20 +294,104 @@ int open(const char *name, int flags, ...) {
     if (ret < 0) {
         errno = syscall__get_errno();
     }
+#ifdef BUFFERING
+    else {
+        pcsx_checkKernel(0);
+        struct iob *fcb = &(*fcb_table_ptr)[ret];
+        if ((fcb->i_fstype & 0x04) != 0) {
+            fcb->i_ma = NULL;
+        }
+        pcsx_checkKernel(1);
+    }
+#endif
     return ret;
 }
 
-static inline int syscall_read(int fd, char *ptr, int len) B0CALL(0x34, int, (int, char *, int), (fd, ptr, len))
-int read(int file, char *ptr, int len) {
-    int ret = syscall_read(file, ptr, len);
-    if (ret < 0) {
-        errno = syscall__get_errno();
+static int syscall_read(int fd, char *ptr, int len) B0CALL(0x34, int, (int, char *, int), (fd, ptr, len))
+static int ensure_buffer(struct iob *fcb, unsigned long target_offset) {
+    if (fcb->i_cc != target_offset) {
+        unsigned long tmp_offset = fcb->i_offset;
+        fcb->i_offset = target_offset;
+        int ret = syscall_read(fcb->i_fd, fcb->i_ma, fcb->i_dp->dt_bsize);
+        if (ret < 0) {
+            return ret;
+        }
+        fcb->i_cc = fcb->i_offset;
+        fcb->i_offset = tmp_offset;
     }
-    return ret;
+    return 0;
+}
+#include <stddef.h> // NULL
+#include <string.h> // memcpy
+int read(int file, char *ptr, int len) {
+    int total_read = 0;
+#ifdef BUFFERING
+    pcsx_checkKernel(0);
+    struct iob *fcb = &(*fcb_table_ptr)[file];
+    if (fcb->i_flgs == 0) {
+        errno = ENOENT;
+        pcsx_checkKernel(1);
+        return -1;
+    }
+
+    if ((fcb->i_fstype & 0x04) != 0) {
+        if (fcb->i_ma == NULL) {
+            fcb->i_ma = malloc(fcb->i_dp->dt_bsize);
+            fcb->i_cc = -1;
+        }
+        int bsize_mask = fcb->i_dp->dt_bsize - 1;
+        if ((fcb->i_offset & bsize_mask) != 0) {
+            int ret = ensure_buffer(fcb, fcb->i_offset & ~bsize_mask);
+            if (ret < 0) {
+                errno = syscall__get_errno();
+                pcsx_checkKernel(1);
+                return ret;
+            }
+            unsigned long from_buf = fcb->i_dp->dt_bsize - (fcb->i_offset - fcb->i_cc);
+            if (len < from_buf) from_buf = len;
+            memcpy(ptr, fcb->i_ma + fcb->i_offset - fcb->i_cc, from_buf);
+            ptr += from_buf;
+            fcb->i_offset += from_buf;
+            len -= from_buf;
+            total_read += from_buf;
+        }
+        unsigned long from_dev = len & ~bsize_mask;
+        if (from_dev > 0) {
+            int ret = syscall_read(file, ptr, from_dev);
+            if (ret < 0) {
+                errno = syscall__get_errno();
+                pcsx_checkKernel(1);
+                return ret;
+            }
+            ptr += from_dev;
+            len -= from_dev;
+            total_read += from_dev;
+        }
+        if (len > 0) {
+            int ret = ensure_buffer(fcb, fcb->i_offset);
+            if (ret < 0) {
+                errno = syscall__get_errno();
+                pcsx_checkKernel(1);
+                return ret;
+            }
+            memcpy(ptr, fcb->i_ma, len);
+            fcb->i_offset += len;
+            total_read += len;
+        }
+    }
+    else
+#endif
+    {
+        total_read = syscall_read(file, ptr, len);
+        if (total_read < 0) {
+            errno = syscall__get_errno();
+        }
+    }
+    pcsx_checkKernel(1);
+    return total_read;
 }
 
 #include <ctype.h> // tolower
-#include <stddef.h> // NULL
 #include <strings.h> // bzero
 int stat(const char *file, struct stat *st) {
     pcsx_checkKernel(0);
