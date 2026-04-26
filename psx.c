@@ -92,19 +92,6 @@ static __inline__ int pcsx_isCheckingKernel() { return 0; }
 #define A0CALL(number, returntype, param_sig, parameters) ROMCALL(0xA0, number, returntype, param_sig, parameters)
 #define B0CALL(number, returntype, param_sig, parameters) ROMCALL(0xB0, number, returntype, param_sig, parameters)
 
-// I've checked to make sure that all error codes returned by the BIOS line up
-// with the error codes defined in Newlib
-static inline int syscall__get_errno(void) B0CALL(0x54, int, (void), ())
-
-static inline int syscall_close(int fd) B0CALL(0x36, int, (int), (fd))
-int close(int file) {
-    int ret = syscall_close(file);
-    if (ret < 0) {
-        errno = syscall__get_errno();
-    }
-    return ret;
-}
-
 struct EvCB {
     unsigned long desc;
     long status;
@@ -161,6 +148,19 @@ static struct EvCB *const * evcb_table_ptr = (struct EvCB *const *)0x120;
 static size_t * evcb_table_size = (size_t *)0x124;
 static struct iob *const * fcb_table_ptr = (struct iob *const *)0x140;
 static struct device_table *const * dcb_table_ptr = (struct device_table *const *)0x150;
+
+// I've checked to make sure that all error codes returned by the BIOS line up
+// with the error codes defined in Newlib
+static inline int syscall__get_errno(void) B0CALL(0x54, int, (void), ())
+
+static inline int syscall_close(int fd) B0CALL(0x36, int, (int), (fd))
+int close(int file) {
+    int ret = syscall_close(file);
+    if (ret < 0) {
+        errno = syscall__get_errno();
+    }
+    return ret;
+}
 
 #include <sys/stat.h>
 #define makedev(major, minor) (((minor) & 0xffff) | (((major) & 0xffff) << 16))
@@ -295,8 +295,8 @@ int read(int file, char *ptr, int len) {
 }
 
 #include <ctype.h> // tolower
-#include <strings.h> // bzero
 #include <stddef.h> // NULL
+#include <strings.h> // bzero
 int stat(const char *file, struct stat *st) {
     pcsx_checkKernel(0);
     struct device_table *dcb;
@@ -343,7 +343,7 @@ int stat(const char *file, struct stat *st) {
         struct DIRENTRY dir_e;
         struct iob fcb;
         fcb.i_unit = device_minor_id;
-        asm("addiu $sp, $sp, -16");
+        asm("addiu $sp, $sp, -16" ::: "sp");
         struct DIRENTRY *found = dcb->dt_firstfile(&fcb, file+i+1, &dir_e);
         asm("addiu $sp, $sp, 16");
         if (found == NULL) {
